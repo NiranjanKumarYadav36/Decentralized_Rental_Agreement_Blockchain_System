@@ -1,0 +1,28 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import axios from "axios";
+
+const API = axios.create({
+  baseURL: "http://localhost:5000/api"
+});
+
+// Add token to every request automatically
+API.interceptors.request.use((config) => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  if (user.token) {
+    config.headers.Authorization = `Bearer ${user.token}`;
+  }
+  return config;
+});
+
+// Auth APIs
+export const registerUser = (data: any) => API.post("/auth/register", data);
+export const loginUser = (data: any) => API.post("/auth/login", data);
+export const getProfile = () => API.get("/auth/profile");
+export const updateWallet = (data: any) => API.put("/auth/wallet", data);
+
+// Property APIs
+export const getProperties = (filters: any) => API.get("/properties", { params: filters });
+export const getProperty = (id: any) => API.get(`/properties/${id}`);
+export const addProperty = (data: any) => API.post("/properties", data, { headers: { "Content-Type": "multipart/form-data"}});
+export const getMyProperties = () => API.get("/properties/my");
+export const updateProperty = (id: any, data: any) => API.put(`/properties/${id}`, data);

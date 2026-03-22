@@ -4,32 +4,25 @@ import { useAuth } from "@/context/AuthContext";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Properties from "@/pages/Properties";
-import PropertyDetail from "@/pages/PropertyDetail";
-import LandlordDashboard from "@/pages/LandLordDashBoard";
-import TenantDashboard from "./pages/TenantDashboard";
-import Landing from "./pages/Landing";
-import NotFound from "./pages/NotFound";
 
 const ProtectedRoute = ({ children }: any) => {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
 };
 
-export default function App() {
+export default function RentalDApp() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="*" element={<NotFound />} />
-      {/* <Route path="/" element={<Navigate to="/properties" />} /> */}
+      <Route path="/" element={<Navigate to="/properties" />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/properties" element={<Properties />} />
-      <Route path="/property/:id" element={<PropertyDetail />} />
+      
       <Route
         path="/dashboard/landlord"
         element={
           <ProtectedRoute>
-            <LandlordDashboard />
+            <RentalDApp />
           </ProtectedRoute>
         }
       />
@@ -37,7 +30,7 @@ export default function App() {
         path="/dashboard/tenant"
         element={
           <ProtectedRoute>
-            <TenantDashboard />
+            <RentalDApp />
           </ProtectedRoute>
         }
       />
