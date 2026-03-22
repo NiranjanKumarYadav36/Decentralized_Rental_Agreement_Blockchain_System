@@ -7,8 +7,8 @@ import contractData from "@/contracts/RentalAgreement.json";
 const CONTRACT_ADDRESS = contractData.address;
 const CONTRACT_ABI = contractData.abi;
 
-const LANDLORD = "0x31d94a605c498fa39d7e323e03298835281472a6";
-const TENANT = "0x07ccac6b2baadadd3965e2588dc85166eaeeda70";
+// const LANDLORD = "0x31d94a605c498fa39d7e323e03298835281472a6";
+// const TENANT = "0x07ccac6b2baadadd3965e2588dc85166eaeeda70";
 
 export default function App() {
   const [account, setAccount] = useState("");
@@ -32,10 +32,10 @@ export default function App() {
         method: "eth_requestAccounts",
       });
       const userAccount = accounts[0].toLowerCase();
-      // ADD THIS LINE
-      console.log("Connected:", userAccount);
-      console.log("Tenant constant:", TENANT);
-      console.log("Match:", userAccount === TENANT);
+
+      // console.log("Connected:", userAccount);
+      // console.log("Tenant constant:", TENANT);
+      // console.log("Match:", userAccount === TENANT);
       setAccount(userAccount);
 
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -43,20 +43,22 @@ export default function App() {
       const c = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       setContract(c);
 
-      if (userAccount === LANDLORD) setRole("landlord");
-      else if (userAccount === TENANT) setRole("tenant");
-      else setRole("unknown");
+      // if (userAccount === LANDLORD) setRole("landlord");
+      // else if (userAccount === TENANT) setRole("tenant");
+      // else setRole("unknown");
+      // await loadDetails(c);
 
-      await loadDetails(c);
+      await loadDetails(c, userAccount);
+
     } catch (err) {
       setError("Failed to connect wallet.");
     }
   };
 
-  const loadDetails = async (c: any) => {
+  const loadDetails = async (c: any, currentAccount?: string) => {
     try {
       const d = await c.getAgreementDetails();
-      setDetails({
+      const agreementData = {
         landlord: d[0],
         tenant: d[1],
         rentAmount: d[2],
@@ -65,10 +67,23 @@ export default function App() {
         isActive: d[5],
         totalRentPaid: d[6],
         disputeActive: d[7],
-      });
-      // ADD THESE TWO LINES
+      };
+      setDetails(agreementData);
+
+      // Dynamically detect role from blockchain
+      const acc = currentAccount || account;
+      if (acc === agreementData.landlord.toLowerCase()) {
+        setRole("landlord");
+      } else if (acc === agreementData.tenant.toLowerCase()) {
+        setRole("tenant");
+      } else {
+        setRole("unknown");
+      }
+
+      // Load dispute reason
       const reason = await c.disputeReason();
       setDisputeText(reason);
+
     } catch {
       setError("Failed to load details.");
     }

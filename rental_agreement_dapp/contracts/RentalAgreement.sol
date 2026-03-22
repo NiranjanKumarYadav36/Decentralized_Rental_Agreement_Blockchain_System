@@ -81,7 +81,7 @@ contract RentalAgreement {
         depositAmount = _depositAmount;
         agreementStart = block.timestamp;
         agreementEnd = block.timestamp + 
-            (_agreementDurationDays * 1 days);
+         (_agreementDurationDays == 0 ? 1 minutes : _agreementDurationDays * 1 days);
         rentDueDay = _rentDueDay;
         isActive = false;
         depositReturned = false;

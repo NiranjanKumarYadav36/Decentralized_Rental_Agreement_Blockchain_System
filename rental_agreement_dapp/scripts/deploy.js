@@ -29,7 +29,7 @@ async function main() {
   const depositAmount = hre.ethers.parseEther("0.02");
 
   // Agreement duration — 30 days
-  const durationDays = 30;
+  const durationDays = 0;
 
   // Rent due day — 1st of every month
   const rentDueDay = 1;
