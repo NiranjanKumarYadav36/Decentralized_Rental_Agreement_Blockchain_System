@@ -1,0 +1,214 @@
+{
+  "address": "0x1c7F7D61b4bb0a0518a9D68A324ad4C280A586Ac",
+  "abi": [
+    {
+      "inputs": [
+        {"internalType": "address", "name": "_tenant", "type": "address"},
+        {"internalType": "uint256", "name": "_rentAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "_depositAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "_agreementDurationDays", "type": "uint256"},
+        {"internalType": "uint256", "name": "_rentDueDay", "type": "uint256"}
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "landlord", "type": "address"},
+        {"indexed": true, "internalType": "address", "name": "tenant", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "rentAmount", "type": "uint256"},
+        {"indexed": false, "internalType": "uint256", "name": "depositAmount", "type": "uint256"}
+      ],
+      "name": "AgreementSigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "terminatedBy", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"}
+      ],
+      "name": "AgreementTerminated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "tenant", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"}
+      ],
+      "name": "DepositReturned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "raisedBy", "type": "address"},
+        {"indexed": false, "internalType": "string", "name": "reason", "type": "string"},
+        {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"}
+      ],
+      "name": "DisputeRaised",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "tenant", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
+        {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"}
+      ],
+      "name": "RentPaid",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "agreementEnd",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "agreementStart",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "depositAmount",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "depositReturned",
+      "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "disputeActive",
+      "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "disputeReason",
+      "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getAgreementDetails",
+      "outputs": [
+        {"internalType": "address", "name": "_landlord", "type": "address"},
+        {"internalType": "address", "name": "_tenant", "type": "address"},
+        {"internalType": "uint256", "name": "_rentAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "_depositAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "_agreementEnd", "type": "uint256"},
+        {"internalType": "bool", "name": "_isActive", "type": "bool"},
+        {"internalType": "uint256", "name": "_totalRentPaid", "type": "uint256"},
+        {"internalType": "bool", "name": "_disputeActive", "type": "bool"}
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getContractBalance",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "isActive",
+      "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "landlord",
+      "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lastRentPaid",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "payRent",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "string", "name": "_reason", "type": "string"}],
+      "name": "raiseDispute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rentAmount",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rentDueDay",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "bool", "name": "_returnDeposit", "type": "bool"}],
+      "name": "resolveDispute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "signAgreement",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tenant",
+      "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "terminateAgreement",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalRentPaid",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}
