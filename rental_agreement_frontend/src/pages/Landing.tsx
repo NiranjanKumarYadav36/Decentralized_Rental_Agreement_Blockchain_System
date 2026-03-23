@@ -61,10 +61,13 @@ export default function Landing() {
 
       {/* NAVBAR */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 cursor-pointer"
+        >
           <span className="text-2xl">🏠</span>
           <span className="text-xl font-bold text-white">RentalChain</span>
-        </div>
+        </button>
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/properties")}
