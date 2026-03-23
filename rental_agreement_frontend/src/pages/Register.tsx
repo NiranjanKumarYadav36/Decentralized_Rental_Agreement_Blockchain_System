@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, Loader2, UserPlus } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -20,7 +21,7 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: any) => {
@@ -54,54 +55,7 @@ export default function Register() {
         <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl" />
       </div>
 
-      {/* NAVBAR */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <span className="text-2xl">🏠</span>
-          <span className="text-xl font-bold text-white">RentalChain</span>
-        </button>
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/properties")}
-            className="text-purple-300 hover:text-white transition-colors text-sm"
-          >
-            Browse Properties
-          </button>
-
-          {user ? (
-            <Button
-              onClick={() => navigate(
-                user.role === "landlord"
-                  ? "/dashboard/landlord"
-                  : "/dashboard/tenant"
-              )}
-              className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6"
-            >
-              Dashboard
-            </Button>
-          ) : (
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/login")}
-                className="bg-white/10 hover:bg-white/20 text-white rounded-xl px-6"
-              >
-                Login
-              </Button>
-              <Button
-                onClick={() => navigate("/register")}
-                className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6"
-              >
-                Get Started
-              </Button>
-            </div>
-          )}
-        </div>
-      </nav>
+      <Navbar />
 
       {/* REGISTER CARD */}
       <div className="relative z-10 flex items-center justify-center px-4 pt-12 pb-16">
@@ -177,7 +131,7 @@ export default function Register() {
               <Button
                 onClick={handleRegister}
                 disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-base font-semibold transition-all"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-base font-semibold transition-all duration-200"
               >
                 {loading ? (
                   <>
