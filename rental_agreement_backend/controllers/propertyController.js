@@ -143,10 +143,29 @@ const updateProperty = async (req, res) => {
   }
 };
 
+const deleteProperty = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+    if (property.landlord.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    await Property.findByIdAndDelete(req.params.id);
+    res.json({ message: "Property deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 module.exports = {
   addProperty,
   getProperties,
   getProperty,
   getMyProperties,
-  updateProperty
+  updateProperty, 
+  deleteProperty,
 };
+

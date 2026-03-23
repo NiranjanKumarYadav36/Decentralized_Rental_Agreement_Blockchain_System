@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getProperty } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { DetailSkeleton } from "@/components/Skeleton";
+import RequestAgreementButton from "@/components/RequestAgreementButton";
 
 export default function PropertyDetail() {
     const { id } = useParams();
@@ -12,6 +13,7 @@ export default function PropertyDetail() {
     const { user } = useAuth();
     const [property, setProperty] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [selectedImage, setSelectedImage] = useState(0);
 
     useEffect(() => {
         const fetch = async () => {
@@ -88,16 +90,43 @@ export default function PropertyDetail() {
                     {/* LEFT COLUMN — Main Details */}
                     <div className="lg:col-span-2 space-y-6">
 
-                        {/* PROPERTY IMAGE */}
-                        <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl h-72 flex items-center justify-center overflow-hidden">
-                            {property.images && property.images.length > 0 ? (
-                                <img
-                                    src={property.images[0]}
-                                    alt={property.title}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <span className="text-9xl">🏠</span>
+                        {/* PROPERTY IMAGE GALLERY */}
+                        <div className="rounded-2xl overflow-hidden">
+                            {/* Main Image */}
+                            <div className="h-72 bg-gradient-to-br from-purple-600 to-blue-600 overflow-hidden">
+                                {property.images && property.images.length > 0 ? (
+                                    <img
+                                        src={property.images[selectedImage]}
+                                        alt={property.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <span className="text-9xl">🏠</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Thumbnail Row */}
+                            {property.images && property.images.length > 1 && (
+                                <div className="flex gap-2 mt-2">
+                                    {property.images.map((img: string, index: number) => (
+                                        <div
+                                            key={index}
+                                            onClick={() => setSelectedImage(index)}
+                                            className={`h-16 w-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${selectedImage === index
+                                                    ? "border-purple-400 opacity-100"
+                                                    : "border-white/10 opacity-60 hover:opacity-100"
+                                                }`}
+                                        >
+                                            <img
+                                                src={img}
+                                                alt={`view ${index + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
 
@@ -210,12 +239,10 @@ export default function PropertyDetail() {
                             {property.isAvailable ? (
                                 user ? (
                                     user.role === "tenant" ? (
-                                        <Button
-                                            onClick={() => navigate("/dashboard/tenant")}
-                                            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl text-lg mt-4"
-                                        >
-                                            🤝 Request Agreement
-                                        </Button>
+                                        <RequestAgreementButton
+                                            property={property}
+                                            user={user}
+                                        />
                                     ) : (
                                         <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-3 mt-4 text-center">
                                             <p className="text-blue-300 text-sm">

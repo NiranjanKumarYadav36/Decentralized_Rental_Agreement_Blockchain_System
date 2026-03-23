@@ -5,9 +5,11 @@ import { ethers } from "ethers";
 import { Button } from "@/components/ui/button";
 import { getProperties } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import contractData from "@/contracts/RentalAgreement.json";
+import { getTenantAgreements, updateAgreementStatus } from "@/services/api";
 
-const CONTRACT_ADDRESS = contractData.address;
+import contractDataRaw from "@/contracts/RentalAgreement.json";
+const contractData = contractDataRaw as any;
+const CONTRACT_ADDRESS = contractData.address || "";
 const CONTRACT_ABI = contractData.abi;
 
 export default function TenantDashboard() {
@@ -28,7 +30,11 @@ export default function TenantDashboard() {
     const [error, setError] = useState("");
     const [disputeReason, setDisputeReason] = useState("");
     const [disputeText, setDisputeText] = useState("");
-    const [activeTab, setActiveTab] = useState<"browse" | "agreement">("browse");
+    const [activeTab, setActiveTab] = useState<"browse" | "agreements" | "agreement">("browse");
+
+    const [myAgreements, setMyAgreements] = useState<any[]>([]);
+    const [loadingAgreements, setLoadingAgreements] = useState(false);
+    const [approvedAgreement, setApprovedAgreement] = useState<any>(null);
 
     // Load properties
     useEffect(() => {
@@ -52,6 +58,13 @@ export default function TenantDashboard() {
                 setError("MetaMask not found!");
                 return;
             }
+
+            // Check if there is an approved agreement
+            if (!approvedAgreement?.contractAddress) {
+                setError("No approved agreement found! Wait for landlord to approve.");
+                return;
+            }
+
             const accounts = await window.ethereum.request({
                 method: "eth_requestAccounts",
             });
@@ -60,7 +73,13 @@ export default function TenantDashboard() {
 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            const c = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+            // Use DYNAMIC contract address from approved agreement
+            const c = new ethers.Contract(
+                approvedAgreement.contractAddress,
+                CONTRACT_ABI,
+                signer
+            );
             setContract(c);
             await loadDetails(c, userAccount);
             setActiveTab("agreement");
@@ -94,6 +113,33 @@ export default function TenantDashboard() {
         }
     };
 
+    const fetchMyAgreements = async () => {
+        try {
+            setLoadingAgreements(true);
+            const res = await getTenantAgreements();
+            setMyAgreements(res.data);
+
+            // Find approved agreement with contract address
+            const approved = res.data.find(
+                (a: any) => (a.status === "approved" || a.status === "active") && a.contractAddress
+            );
+            if (approved) {
+                setApprovedAgreement(approved);
+            } else {
+                setApprovedAgreement(null); // ← ADD THIS
+            }
+
+            setLoadingAgreements(false);
+        } catch {
+            setLoadingAgreements(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMyAgreements();
+    }, []);
+
+
     const signAgreement = async () => {
         if (!contract || !details) return;
         try {
@@ -104,11 +150,20 @@ export default function TenantDashboard() {
             await tx.wait();
             setLoading("");
             await loadDetails(contract);
+
+            // ✅ Auto update status to active in backend
+            if (approvedAgreement?._id) {
+                await updateAgreementStatus(approvedAgreement._id, { status: "active" });
+                await fetchMyAgreements();
+            }
+
         } catch (err: any) {
             setError(err.reason || err.message || "Transaction failed.");
             setLoading("");
         }
     };
+
+
 
     const payRent = async () => {
         if (!contract || !details) return;
@@ -201,17 +256,26 @@ export default function TenantDashboard() {
                     <button
                         onClick={() => setActiveTab("browse")}
                         className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "browse"
-                                ? "bg-purple-600 text-white"
-                                : "bg-white/10 text-purple-300 hover:bg-white/20"
+                            ? "bg-purple-600 text-white"
+                            : "bg-white/10 text-purple-300 hover:bg-white/20"
                             }`}
                     >
                         🏠 Browse Properties
                     </button>
                     <button
+                        onClick={() => setActiveTab("agreements")}
+                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "agreements"
+                            ? "bg-green-600 text-white"
+                            : "bg-white/10 text-purple-300 hover:bg-white/20"
+                            }`}
+                    >
+                        📋 My Requests
+                    </button>
+                    <button
                         onClick={() => setActiveTab("agreement")}
                         className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "agreement"
-                                ? "bg-purple-600 text-white"
-                                : "bg-white/10 text-purple-300 hover:bg-white/20"
+                            ? "bg-purple-600 text-white"
+                            : "bg-white/10 text-purple-300 hover:bg-white/20"
                             }`}
                     >
                         ⛓️ My Agreement
@@ -245,8 +309,8 @@ export default function TenantDashboard() {
                                                     {property.roomType}
                                                 </span>
                                                 <span className={`text-xs px-2 py-1 rounded-full ${property.isAvailable
-                                                        ? "bg-green-500/20 text-green-300"
-                                                        : "bg-red-500/20 text-red-300"
+                                                    ? "bg-green-500/20 text-green-300"
+                                                    : "bg-red-500/20 text-red-300"
                                                     }`}>
                                                     {property.isAvailable ? "✅ Available" : "❌ Taken"}
                                                 </span>
@@ -279,6 +343,114 @@ export default function TenantDashboard() {
                     </div>
                 )}
 
+                {/* MY REQUESTS TAB */}
+                {activeTab === "agreements" && (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-white">
+                                📋 My Agreement Requests
+                            </h3>
+                            <Button
+                                onClick={fetchMyAgreements}
+                                className="bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm"
+                            >
+                                🔄 Refresh
+                            </Button>
+                        </div>
+
+                        {loadingAgreements ? (
+                            <p className="text-purple-300 animate-pulse">Loading...</p>
+                        ) : myAgreements.length === 0 ? (
+                            <div className="bg-white/10 backdrop-blur rounded-2xl p-10 border border-white/20 text-center">
+                                <p className="text-4xl mb-4">📋</p>
+                                <p className="text-white font-bold mb-2">No requests yet</p>
+                                <p className="text-purple-300 text-sm mb-6">
+                                    Browse properties and request an agreement
+                                </p>
+                                <Button
+                                    onClick={() => setActiveTab("browse")}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl"
+                                >
+                                    Browse Properties
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {myAgreements.map((agreement) => (
+                                    <div
+                                        key={agreement._id}
+                                        className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20"
+                                    >
+                                        <div className="flex gap-2 mb-3">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${agreement.status === "pending"
+                                                ? "bg-yellow-500/20 text-yellow-300"
+                                                : agreement.status === "approved"
+                                                    ? "bg-blue-500/20 text-blue-300"
+                                                    : agreement.status === "active"
+                                                        ? "bg-green-500/20 text-green-300"
+                                                        : "bg-red-500/20 text-red-300"
+                                                }`}>
+                                                {agreement.status === "pending" ? "⏳ Pending Approval"
+                                                    : agreement.status === "approved" ? "✅ Approved — Sign Now!"
+                                                        : agreement.status === "active" ? "🟢 Active"
+                                                            : "❌ " + agreement.status}
+                                            </span>
+                                        </div>
+
+                                        <h4 className="text-white font-bold text-lg mb-1">
+                                            🏠 {agreement.property?.title}
+                                        </h4>
+                                        <p className="text-purple-300 text-sm mb-3">
+                                            📍 {agreement.property?.location}
+                                        </p>
+
+                                        <div className="flex gap-4 mb-3">
+                                            <div>
+                                                <p className="text-purple-300 text-xs">Rent</p>
+                                                <p className="text-white font-bold">
+                                                    ₹{agreement.rentAmount?.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-purple-300 text-xs">Deposit</p>
+                                                <p className="text-white font-bold">
+                                                    ₹{agreement.depositAmount?.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-purple-300 text-xs">Duration</p>
+                                                <p className="text-white font-bold">
+                                                    {agreement.durationDays} days
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* If approved show contract address and sign button */}
+                                        {agreement.status === "approved" && agreement.contractAddress && (
+                                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                                                <p className="text-blue-300 text-sm font-semibold mb-2">
+                                                    🎉 Approved! Sign on blockchain now
+                                                </p>
+                                                <p className="text-white font-mono text-xs break-all mb-3">
+                                                    Contract: {agreement.contractAddress}
+                                                </p>
+                                                <Button
+                                                    onClick={() => {
+                                                        setActiveTab("agreement");
+                                                    }}
+                                                    className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                                                >
+                                                    ⛓️ Go to My Agreement Tab to Sign
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* AGREEMENT TAB */}
                 {activeTab === "agreement" && (
                     <div className="space-y-6">
@@ -290,18 +462,42 @@ export default function TenantDashboard() {
                                 <h3 className="text-2xl font-bold text-white mb-2">
                                     Connect MetaMask
                                 </h3>
-                                <p className="text-purple-200 mb-6">
-                                    Connect your wallet to view and manage your rental agreement
-                                </p>
+
+                                {approvedAgreement ? (
+                                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-6 text-left">
+                                        <p className="text-green-300 font-semibold mb-2">
+                                            ✅ Agreement Approved!
+                                        </p>
+                                        <p className="text-white text-sm mb-1">
+                                            🏠 {approvedAgreement.property?.title}
+                                        </p>
+                                        <p className="text-purple-300 text-xs font-mono break-all">
+                                            Contract: {approvedAgreement.contractAddress}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-purple-200 mb-6">
+                                        Connect your wallet to view and manage your rental agreement
+                                    </p>
+                                )}
+
                                 <Button
                                     onClick={connectWallet}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-lg"
+                                    disabled={!approvedAgreement}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-lg disabled:opacity-50"
                                 >
-                                    Connect MetaMask
+                                    {approvedAgreement
+                                        ? "Connect MetaMask to Sign"
+                                        : "No Approved Agreement Yet"}
                                 </Button>
-                                {error && (
-                                    <p className="text-red-400 mt-4">{error}</p>
+
+                                {!approvedAgreement && (
+                                    <p className="text-purple-300 text-sm mt-4">
+                                        Request an agreement from a property and wait for landlord approval
+                                    </p>
                                 )}
+
+                                {error && <p className="text-red-400 mt-4">{error}</p>}
                             </div>
                         ) : (
                             <div className="space-y-6">
@@ -315,10 +511,10 @@ export default function TenantDashboard() {
                                         <p className="text-white font-mono">{short(account)}</p>
                                     </div>
                                     <div className={`px-4 py-2 rounded-full text-sm font-bold border ${role === "tenant"
-                                            ? "bg-green-500/20 text-green-300 border-green-500/30"
-                                            : role === "landlord"
-                                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                                : "bg-red-500/20 text-red-300 border-red-500/30"
+                                        ? "bg-green-500/20 text-green-300 border-green-500/30"
+                                        : role === "landlord"
+                                            ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                            : "bg-red-500/20 text-red-300 border-red-500/30"
                                         }`}>
                                         {role === "tenant" ? "🏡 Tenant"
                                             : role === "landlord" ? "👔 Landlord"
@@ -376,8 +572,8 @@ export default function TenantDashboard() {
                                         </div>
                                         <div className="flex gap-3 mt-4">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${details.isActive
-                                                    ? "bg-green-500/20 text-green-300"
-                                                    : "bg-red-500/20 text-red-300"
+                                                ? "bg-green-500/20 text-green-300"
+                                                : "bg-red-500/20 text-red-300"
                                                 }`}>
                                                 {details.isActive ? "✅ Active" : "❌ Inactive"}
                                             </span>

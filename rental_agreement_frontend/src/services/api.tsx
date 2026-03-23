@@ -26,3 +26,24 @@ export const getProperty = (id: any) => API.get(`/properties/${id}`);
 export const addProperty = (data: any) => API.post("/properties", data, { headers: { "Content-Type": "multipart/form-data"}});
 export const getMyProperties = () => API.get("/properties/my");
 export const updateProperty = (id: any, data: any) => API.put(`/properties/${id}`, data);
+export const deleteProperty = (id: any) => API.delete(`/properties/${id}`);
+
+// Agreement APIs
+export const requestAgreement = (data: any) =>
+  API.post("/agreements/request", data);
+
+export const getTenantAgreements = () =>
+  API.get("/agreements/my");
+
+export const getLandlordAgreements = () =>
+  API.get("/agreements/requests");
+
+export const approveAgreement = (id: any, data: any) =>
+  API.put(`/agreements/${id}/approve`, data);
+
+export const updateAgreementStatus = (id: any, data: any) =>
+  API.put(`/agreements/${id}/status`, data);
+
+export const getAgreement = (id: any) =>
+  API.get(`/agreements/${id}`);
+

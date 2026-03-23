@@ -18,7 +18,7 @@ const agreementSchema = new mongoose.Schema({
   },
   contractAddress: {
     type: String,
-    required: true
+    default: ""
   },
   rentAmount: {
     type: Number,
@@ -28,22 +28,33 @@ const agreementSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  durationDays: {
+    type: Number,
+    default: 30
+  },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "active", "expired", "terminated"],
+    default: "pending"
+  },
+  disputeActive: {
+    type: Boolean,
+    default: false
+  },
+  disputeReason: {
+    type: String,
+    default: ""
+  },
+  txHash: {
+    type: String,
+    default: ""
+  },
   startDate: {
     type: Date,
     default: Date.now
   },
   endDate: {
-    type: Date,
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ["pending", "active", "expired", "terminated"],
-    default: "pending"
-  },
-  txHash: {
-    type: String,
-    default: ""
+    type: Date
   }
 }, { timestamps: true });
 
