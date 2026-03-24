@@ -2,23 +2,35 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { Button } from "@/components/ui/button";
 import { addProperty, getMyProperties, updateProperty, getLandlordAgreements, approveAgreement, deleteProperty } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 import factoryDataRaw from "@/contracts/RentalFactory.json";
 import BlockchainAgreementCard from "@/components/BlockchainAgreementCard";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertCircle, CheckCircle2, RefreshCw, LogOut, Eye, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+
 const contractData = contractDataRaw as any;
 const factoryData = factoryDataRaw as any;
-
 const CONTRACT_ABI = contractData.abi;
 const FACTORY_ADDRESS = factoryData.address || "";
 const FACTORY_ABI = factoryData.abi;
 
+const PAGE_SIZE = 4;
+
 export default function LandlordDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
   const [images, setImages] = useState<FileList | null>(null);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,15 +38,14 @@ export default function LandlordDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [propPage, setPropPage] = useState(1);
+  const [propFilter, setPropFilter] = useState({ search: "", roomType: "", status: "" });
+
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    location: "",
-    rentAmount: "",
-    depositAmount: "",
-    roomType: "1BHK",
-    amenities: ""
+    title: "", description: "", location: "",
+    rentAmount: "", depositAmount: "", roomType: "1BHK", amenities: ""
   });
+
   const [activeTab, setActiveTab] = useState<"properties" | "agreements" | "blockchain">("properties");
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loadingAgreements, setLoadingAgreements] = useState(false);
@@ -47,6 +58,7 @@ export default function LandlordDashboard() {
       try {
         const res = await getMyProperties();
         setProperties(res.data);
+        setPropPage(1);
         setLoading(false);
       } catch {
         setLoading(false);
@@ -61,9 +73,7 @@ export default function LandlordDashboard() {
     }
   }, [activeTab]);
 
-  const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleAddProperty = async () => {
     try {
@@ -78,17 +88,16 @@ export default function LandlordDashboard() {
       formData.append("roomType", form.roomType);
       formData.append("amenities", form.amenities);
       if (images && images.length > 0) {
-        Array.from(images).forEach((file) => {
-          formData.append("images", file);
-        });
+        Array.from(images).forEach((file) => formData.append("images", file));
       }
       await addProperty(formData);
-      setSuccess("✅ Property added successfully!");
+      setSuccess("Property added successfully!");
       setShowAddForm(false);
       setImages(null);
       setForm({ title: "", description: "", location: "", rentAmount: "", depositAmount: "", roomType: "1BHK", amenities: "" });
       const res = await getMyProperties();
       setProperties(res.data);
+      setPropPage(1);
       setSubmitting(false);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to add property");
@@ -112,7 +121,8 @@ export default function LandlordDashboard() {
       await deleteProperty(id);
       const res = await getMyProperties();
       setProperties(res.data);
-      setSuccess("✅ Property deleted successfully!");
+      setPropPage(1);
+      setSuccess("Property deleted successfully!");
     } catch {
       setError("Failed to delete property");
     }
@@ -133,10 +143,7 @@ export default function LandlordDashboard() {
     try {
       setApprovingId(agreement._id);
       setApproveError("");
-      if (!window.ethereum) {
-        setApproveError("MetaMask not found!");
-        return;
-      }
+      if (!window.ethereum) { setApproveError("MetaMask not found!"); return; }
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
@@ -145,29 +152,19 @@ export default function LandlordDashboard() {
       const tx = await factory.createAgreement(
         await signer.getAddress(),
         agreement.tenant.walletAddress,
-        rentInWei,
-        depositInWei,
-        agreement.durationDays || 30,
-        1,
-        agreement.property._id,
-        agreement.property.title
+        rentInWei, depositInWei,
+        agreement.durationDays || 30, 1,
+        agreement.property._id, agreement.property.title
       );
       const receipt = await tx.wait();
       const event = receipt.logs.find((log: any) => {
-        try {
-          const parsed = factory.interface.parseLog(log);
-          return parsed?.name === "AgreementCreated";
-        } catch {
-          return false;
-        }
+        try { const parsed = factory.interface.parseLog(log); return parsed?.name === "AgreementCreated"; }
+        catch { return false; }
       });
       let contractAddress = "";
-      if (event) {
-        const parsed = factory.interface.parseLog(event);
-        contractAddress = parsed?.args[0];
-      }
+      if (event) { const parsed = factory.interface.parseLog(event); contractAddress = parsed?.args[0]; }
       await approveAgreement(agreement._id, { contractAddress, txHash: tx.hash });
-      setApproveSuccess(`✅ Agreement approved! Contract: ${contractAddress}`);
+      setApproveSuccess(`Agreement approved! Contract: ${contractAddress}`);
       await fetchAgreements();
       setApprovingId("");
     } catch (err: any) {
@@ -176,53 +173,106 @@ export default function LandlordDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+  const handleLogout = () => { logout(); navigate("/login"); };
+
+  // Filtered properties (client-side)
+  const filteredProps = properties.filter((p) => {
+    const matchSearch =
+      !propFilter.search ||
+      p.title.toLowerCase().includes(propFilter.search.toLowerCase()) ||
+      p.location.toLowerCase().includes(propFilter.search.toLowerCase());
+    const matchType   = !propFilter.roomType || p.roomType === propFilter.roomType;
+    const matchStatus =
+      !propFilter.status ||
+      (propFilter.status === "available" && p.isAvailable) ||
+      (propFilter.status === "occupied" && !p.isAvailable);
+    return matchSearch && matchType && matchStatus;
+  });
+
+  // Pagination
+  const totalPropPages = Math.ceil(filteredProps.length / PAGE_SIZE);
+  const paginatedProps  = filteredProps.slice((propPage - 1) * PAGE_SIZE, propPage * PAGE_SIZE);
+  const goToPropPage    = (page: number) => setPropPage(page);
+
+  const tabs = [
+    { key: "properties", label: "🏠 My Properties", activeColor: "bg-purple-600" },
+    { key: "agreements", label: "📋 Agreements",    activeColor: "bg-green-600"  },
+    { key: "blockchain", label: "⛓️ Blockchain",    activeColor: "bg-blue-600"   },
+  ] as const;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+
+      {/* BACKGROUND */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl" />
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
+            backgroundSize: "64px 64px",
+          }}
+        />
+      </div>
 
       {/* NAVBAR */}
-      <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-white font-bold text-xl cursor-pointer" onClick={() => navigate("/properties")}>
-          🏠 RentalChain
-        </h1>
-        <div className="flex items-center gap-3">
-          <span className="text-purple-300 text-sm">👋 {user?.name}</span>
-          <Button onClick={() => navigate("/properties")} className="bg-white/10 hover:bg-white/20 text-white rounded-xl">Browse</Button>
-          <Button onClick={handleLogout} className="bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-xl">Logout</Button>
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-md">
+        <button onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer group">
+          <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🏠</span>
+          <span className="text-xl font-bold text-white tracking-tight">RentalChain</span>
+        </button>
+        <div className="flex items-center gap-4">
+          <span className="text-purple-300 text-sm font-medium">👋 {user?.name}</span>
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/properties")}
+            className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-5 transition-all duration-200"
+          >
+            Browse
+          </Button>
+          <Button
+            onClick={handleLogout}
+            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-300 rounded-xl px-5 transition-all duration-200"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-10">
 
         {/* HEADER */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-white">👔 Landlord Dashboard</h2>
+            <h2 className="text-3xl font-bold text-white tracking-tight">👔 Landlord Dashboard</h2>
             <p className="text-purple-300 mt-1">Manage your properties and agreements</p>
           </div>
           {activeTab === "properties" && (
-            <Button onClick={() => setShowAddForm(!showAddForm)} className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6">
-              {showAddForm ? "✕ Cancel" : "+ Add Property"}
+            <Button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className={`rounded-xl px-6 transition-all duration-200 ${showAddForm
+                ? "bg-white/10 hover:bg-white/20 border border-white/15 text-white"
+                : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
+              }`}
+            >
+              {showAddForm ? <><X className="h-4 w-4 mr-2" />Cancel</> : <><Plus className="h-4 w-4 mr-2" />Add Property</>}
             </Button>
           )}
         </div>
 
         {/* TABS */}
         <div className="flex gap-2 mb-8">
-          {[
-            { key: "properties", label: "🏠 My Properties", color: "bg-purple-600" },
-            { key: "agreements", label: "📋 Agreements", color: "bg-green-600" },
-            { key: "blockchain", label: "⛓️ Blockchain", color: "bg-blue-600" },
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                activeTab === tab.key ? tab.color + " text-white" : "bg-white/10 text-purple-300 hover:bg-white/20"
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                activeTab === tab.key
+                  ? `${tab.activeColor} text-white shadow-lg`
+                  : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
               }`}
             >
               {tab.label}
@@ -230,221 +280,456 @@ export default function LandlordDashboard() {
           ))}
         </div>
 
-        {/* =================== PROPERTIES TAB =================== */}
+        {/* ══════════════ PROPERTIES TAB ══════════════ */}
         {activeTab === "properties" && (
-          <div>
+          <div className="space-y-6">
+
             {/* STATS */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Total Properties", value: properties.length, icon: "🏠" },
-                { label: "Available", value: properties.filter(p => p.isAvailable).length, icon: "✅" },
-                { label: "Occupied", value: properties.filter(p => !p.isAvailable).length, icon: "👥" },
+                { label: "Total Properties", value: properties.length,                            icon: "🏠", color: "via-purple-500/40" },
+                { label: "Available",        value: properties.filter(p => p.isAvailable).length, icon: "✅", color: "via-green-500/40"  },
+                { label: "Occupied",         value: properties.filter(p => !p.isAvailable).length,icon: "👥", color: "via-blue-500/40"   },
               ].map((stat) => (
-                <div key={stat.label} className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20 text-center">
-                  <div className="text-4xl mb-2">{stat.icon}</div>
-                  <div className="text-3xl font-bold text-white">{stat.value}</div>
-                  <div className="text-purple-300 text-sm">{stat.label}</div>
-                </div>
+                <Card key={stat.label} className="bg-white/5 border-white/10 text-center relative overflow-hidden">
+                  <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${stat.color} to-transparent`} />
+                  <CardContent className="py-6">
+                    <div className="text-4xl mb-2">{stat.icon}</div>
+                    <div className="text-3xl font-bold text-white">{stat.value}</div>
+                    <div className="text-purple-300 text-sm mt-1">{stat.label}</div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
 
-            {success && <div className="bg-green-500/20 border border-green-500/30 rounded-2xl p-4 mb-6"><p className="text-green-300">{success}</p></div>}
-            {error && <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-4 mb-6"><p className="text-red-300">❌ {error}</p></div>}
+            {/* ALERTS */}
+            {success && (
+              <Alert className="bg-green-500/10 border-green-500/30">
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <AlertDescription className="text-green-300">✅ {success}</AlertDescription>
+              </Alert>
+            )}
+            {error && (
+              <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-300">{error}</AlertDescription>
+              </Alert>
+            )}
 
             {/* ADD PROPERTY FORM */}
             {showAddForm && (
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-8 border border-white/20 mb-8">
-                <h3 className="text-2xl font-bold text-white mb-6">➕ Add New Property</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="text-purple-200 text-sm mb-1 block">Property Title</label>
-                    <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="e.g. 2BHK Furnished Flat in Kurla West"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-xl">➕ Add New Property</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-purple-200 text-sm">Property Title</Label>
+                      <Input name="title" value={form.title} onChange={handleChange}
+                        placeholder="e.g. 2BHK Furnished Flat in Kurla West"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-purple-200 text-sm">Description</Label>
+                      <Textarea name="description" value={form.description} onChange={handleChange}
+                        placeholder="Describe your property..." rows={3}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl resize-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Location</Label>
+                      <Input name="location" value={form.location} onChange={handleChange}
+                        placeholder="e.g. Kurla West, Mumbai"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Room Type</Label>
+                      <Select value={form.roomType} onValueChange={(v) => setForm({ ...form, roomType: v })}>
+                        <SelectTrigger className="bg-white/10 border-white/20 text-white focus:ring-purple-500 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/20">
+                          {["1BHK", "2BHK", "3BHK", "Studio", "PG", "Single Room"].map((t) => (
+                            <SelectItem key={t} value={t} className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Monthly Rent (₹)</Label>
+                      <Input type="number" name="rentAmount" value={form.rentAmount} onChange={handleChange}
+                        placeholder="15000"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Security Deposit (₹)</Label>
+                      <Input type="number" name="depositAmount" value={form.depositAmount} onChange={handleChange}
+                        placeholder="30000"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-purple-200 text-sm">Amenities (comma separated)</Label>
+                      <Input name="amenities" value={form.amenities} onChange={handleChange}
+                        placeholder="WiFi, AC, Parking, Water, Gas"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-purple-200 text-sm">Property Images (max 5)</Label>
+                      <input type="file" multiple accept="image/*" onChange={(e) => setImages(e.target.files)}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-purple-600 file:text-white cursor-pointer text-sm" />
+                      {images && images.length > 0 && (
+                        <p className="text-purple-300 text-xs">✅ {images.length} image(s) selected</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <label className="text-purple-200 text-sm mb-1 block">Description</label>
-                    <textarea name="description" value={form.description} onChange={handleChange} placeholder="Describe your property..." rows={3}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
+                  <div className="flex gap-3 mt-6">
+                    <Button onClick={handleAddProperty} disabled={submitting}
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-8">
+                      {submitting ? "Adding..." : "✅ Add Property"}
+                    </Button>
+                    <Button onClick={() => { setShowAddForm(false); setImages(null); }}
+                      variant="ghost"
+                      className="border border-white/15 hover:bg-white/10 text-white rounded-xl px-8">
+                      Cancel
+                    </Button>
                   </div>
-                  <div>
-                    <label className="text-purple-200 text-sm mb-1 block">Location</label>
-                    <input type="text" name="location" value={form.location} onChange={handleChange} placeholder="e.g. Kurla West, Mumbai"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
-                  </div>
-                  <div>
-                    <label className="text-purple-200 text-sm mb-1 block">Room Type</label>
-                    <select name="roomType" value={form.roomType} onChange={handleChange} className="w-full bg-slate-800 border border-white/20 rounded-xl px-4 py-3 text-white outline-none">
-                      <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>Studio</option><option>PG</option><option>Single Room</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-purple-200 text-sm mb-1 block">Monthly Rent (₹)</label>
-                    <input type="number" name="rentAmount" value={form.rentAmount} onChange={handleChange} placeholder="15000"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
-                  </div>
-                  <div>
-                    <label className="text-purple-200 text-sm mb-1 block">Security Deposit (₹)</label>
-                    <input type="number" name="depositAmount" value={form.depositAmount} onChange={handleChange} placeholder="30000"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-purple-200 text-sm mb-1 block">Amenities (comma separated)</label>
-                    <input type="text" name="amenities" value={form.amenities} onChange={handleChange} placeholder="WiFi, AC, Parking, Water, Gas"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 outline-none focus:border-purple-400" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-purple-200 text-sm mb-1 block">Property Images (max 5)</label>
-                    <input type="file" multiple accept="image/*" onChange={(e) => setImages(e.target.files)}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-purple-600 file:text-white cursor-pointer" />
-                    {images && images.length > 0 && <p className="text-purple-300 text-xs mt-2">✅ {images.length} image(s) selected</p>}
-                  </div>
-                </div>
-                <div className="flex gap-4 mt-6">
-                  <Button onClick={handleAddProperty} disabled={submitting} className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-8">
-                    {submitting ? "Adding..." : "✅ Add Property"}
-                  </Button>
-                  <Button onClick={() => { setShowAddForm(false); setImages(null); }} className="bg-white/10 hover:bg-white/20 text-white rounded-xl px-8">Cancel</Button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )}
 
             {/* PROPERTIES LIST */}
             <div>
-              <h3 className="text-xl font-bold text-white mb-4">🏠 My Properties</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white">🏠 My Properties</h3>
+                  {!loading && (
+                    <p className="text-purple-400 text-xs mt-0.5">
+                      {filteredProps.length} of {properties.length} propert{properties.length === 1 ? "y" : "ies"}
+                    </p>
+                  )}
+                </div>
+                {totalPropPages > 1 && (
+                  <p className="text-purple-400 text-sm">Page {propPage} of {totalPropPages}</p>
+                )}
+              </div>
+
+              {/* FILTER BAR */}
+              {properties.length > 0 && (
+                <Card className="bg-white/5 border-white/10 mb-4">
+                  <CardContent className="p-3">
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="Search by title or location..."
+                        value={propFilter.search}
+                        onChange={(e) => { setPropFilter({ ...propFilter, search: e.target.value }); setPropPage(1); }}
+                        className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl h-9 text-sm"
+                      />
+                      <Select
+                        value={propFilter.roomType || "all"}
+                        onValueChange={(v) => { setPropFilter({ ...propFilter, roomType: v === "all" ? "" : v }); setPropPage(1); }}
+                      >
+                        <SelectTrigger className="w-36 bg-white/10 border-white/20 text-white focus:ring-purple-500 rounded-xl h-9 text-sm shrink-0">
+                          <SelectValue placeholder="Room Type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/20">
+                          {["all", "1BHK", "2BHK", "3BHK", "Studio", "PG", "Single Room"].map((t) => (
+                            <SelectItem key={t} value={t} className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">
+                              {t === "all" ? "All Types" : t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={propFilter.status || "all"}
+                        onValueChange={(v) => { setPropFilter({ ...propFilter, status: v === "all" ? "" : v }); setPropPage(1); }}
+                      >
+                        <SelectTrigger className="w-36 bg-white/10 border-white/20 text-white focus:ring-purple-500 rounded-xl h-9 text-sm shrink-0">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/20">
+                          <SelectItem value="all"       className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">All Status</SelectItem>
+                          <SelectItem value="available" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">✅ Available</SelectItem>
+                          <SelectItem value="occupied"  className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">❌ Occupied</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {(propFilter.search || propFilter.roomType || propFilter.status) && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => { setPropFilter({ search: "", roomType: "", status: "" }); setPropPage(1); }}
+                          className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-purple-300 hover:text-white rounded-xl h-9 px-3 shrink-0 text-sm transition-all duration-200"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" />Clear
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {loading ? (
                 <p className="text-purple-300 animate-pulse">Loading properties...</p>
               ) : properties.length === 0 ? (
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-10 border border-white/20 text-center">
-                  <p className="text-6xl mb-4">🏠</p>
-                  <p className="text-white text-xl font-bold mb-2">No properties yet</p>
-                  <p className="text-purple-300 mb-6">Add your first property to get started</p>
-                  <Button onClick={() => setShowAddForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl">+ Add Property</Button>
-                </div>
+                <Card className="bg-white/5 border-white/10 text-center">
+                  <CardContent className="py-16">
+                    <p className="text-6xl mb-4">🏠</p>
+                    <p className="text-white text-xl font-bold mb-2">No properties yet</p>
+                    <p className="text-purple-300 mb-6">Add your first property to get started</p>
+                    <Button onClick={() => setShowAddForm(true)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/30">
+                      <Plus className="h-4 w-4 mr-2" />Add Property
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : filteredProps.length === 0 ? (
+                <Card className="bg-white/5 border-white/10 text-center">
+                  <CardContent className="py-12">
+                    <p className="text-4xl mb-3">🔍</p>
+                    <p className="text-white font-bold mb-1">No properties match your filters</p>
+                    <p className="text-purple-300 text-sm mb-4">Try adjusting your search or filters</p>
+                    <Button
+                      variant="ghost"
+                      onClick={() => { setPropFilter({ search: "", roomType: "", status: "" }); setPropPage(1); }}
+                      className="border border-white/15 hover:bg-white/10 text-white rounded-xl"
+                    >
+                      <X className="h-4 w-4 mr-2" />Clear Filters
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : (
-                <div className="space-y-4">
-                  {properties.map((property) => (
-                    <div key={property._id} className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="bg-purple-500/20 text-purple-300 text-xs px-2 py-1 rounded-full">{property.roomType}</span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${property.isAvailable ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
-                              {property.isAvailable ? "✅ Available" : "❌ Occupied"}
-                            </span>
-                          </div>
+                <>
+                  <div className="space-y-4">
+                    {paginatedProps.map((property) => (
+                      <Card key={property._id} className="bg-white/5 border-white/10 hover:border-purple-500/30 transition-all duration-200">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge variant="outline" className="border-purple-500/40 text-purple-300 bg-purple-500/10 text-xs">
+                                  {property.roomType}
+                                </Badge>
+                                <Badge variant="outline" className={`text-xs ${property.isAvailable
+                                  ? "border-green-500/40 text-green-300 bg-green-500/10"
+                                  : "border-red-500/40 text-red-300 bg-red-500/10"
+                                }`}>
+                                  {property.isAvailable ? "✅ Available" : "❌ Occupied"}
+                                </Badge>
+                              </div>
 
-                          {/* IMAGE PREVIEWS */}
-                          {property.images && property.images.length > 0 && (
-                            <div className="flex gap-2 mb-3">
-                              {property.images.slice(0, 3).map((img: string, idx: number) => (
-                                <img key={idx} src={img} alt={property.title}
-                                  className="h-16 w-24 object-cover rounded-xl border border-white/10" />
-                              ))}
-                              {property.images.length > 3 && (
-                                <div className="h-16 w-24 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center">
-                                  <p className="text-purple-300 text-xs">+{property.images.length - 3} more</p>
+                              {/* IMAGE PREVIEWS */}
+                              {property.images?.length > 0 && (
+                                <div className="flex gap-2 mb-3">
+                                  {property.images.slice(0, 3).map((img: string, idx: number) => (
+                                    <img key={idx} src={img} alt={property.title}
+                                      className="h-16 w-24 object-cover rounded-xl border border-white/10" />
+                                  ))}
+                                  {property.images.length > 3 && (
+                                    <div className="h-16 w-24 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center">
+                                      <p className="text-purple-300 text-xs">+{property.images.length - 3} more</p>
+                                    </div>
+                                  )}
                                 </div>
                               )}
+
+                              <h4 className="text-white font-bold text-xl mb-1">{property.title}</h4>
+                              <p className="text-purple-300 mb-3">📍 {property.location}</p>
+
+                              <Separator className="bg-white/10 mb-3" />
+
+                              <div className="flex gap-6">
+                                <div>
+                                  <p className="text-purple-300 text-xs mb-0.5">Monthly Rent</p>
+                                  <p className="text-white font-bold">₹{property.rentAmount.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-purple-300 text-xs mb-0.5">Deposit</p>
+                                  <p className="text-white font-bold">₹{property.depositAmount.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-purple-300 text-xs mb-0.5">Amenities</p>
+                                  <p className="text-white text-sm">{property.amenities.join(", ")}</p>
+                                </div>
+                              </div>
                             </div>
-                          )}
 
-                          <h4 className="text-white font-bold text-xl mb-1">{property.title}</h4>
-                          <p className="text-purple-300 mb-3">📍 {property.location}</p>
-                          <div className="flex gap-6">
-                            <div><p className="text-purple-300 text-xs">Monthly Rent</p><p className="text-white font-bold">₹{property.rentAmount.toLocaleString()}</p></div>
-                            <div><p className="text-purple-300 text-xs">Deposit</p><p className="text-white font-bold">₹{property.depositAmount.toLocaleString()}</p></div>
-                            <div><p className="text-purple-300 text-xs">Amenities</p><p className="text-white text-sm">{property.amenities.join(", ")}</p></div>
+                            {/* ACTION BUTTONS */}
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <Button
+                                onClick={() => navigate(`/property/${property._id}`)}
+                                variant="ghost"
+                                className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl text-sm"
+                              >
+                                <Eye className="h-3.5 w-3.5 mr-1.5" />View
+                              </Button>
+                              <Button
+                                onClick={() => toggleAvailability(property._id, property.isAvailable)}
+                                className={`rounded-xl text-sm transition-all duration-200 ${property.isAvailable
+                                  ? "bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300"
+                                  : "bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-300"
+                                }`}
+                              >
+                                {property.isAvailable ? "Mark Occupied" : "Mark Available"}
+                              </Button>
+                              <Button
+                                onClick={() => handleDeleteProperty(property._id)}
+                                className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 rounded-xl text-sm transition-all duration-200"
+                              >
+                                🗑️ Delete
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
 
-                        {/* ACTION BUTTONS */}
-                        <div className="flex flex-col gap-2 ml-4">
-                          <Button onClick={() => navigate(`/property/${property._id}`)} className="bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm">👁️ View</Button>
-                          <Button onClick={() => toggleAvailability(property._id, property.isAvailable)}
-                            className={`rounded-xl text-sm ${property.isAvailable ? "bg-orange-600/20 hover:bg-orange-600/40 text-orange-300" : "bg-green-600/20 hover:bg-green-600/40 text-green-300"}`}>
-                            {property.isAvailable ? "Mark Occupied" : "Mark Available"}
-                          </Button>
-                          <Button onClick={() => handleDeleteProperty(property._id)}
-                            className="bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-xl text-sm">
-                            🗑️ Delete
-                          </Button>
-                        </div>
-                      </div>
+                  {/* PAGINATION */}
+                  {totalPropPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="ghost"
+                        onClick={() => goToPropPage(propPage - 1)}
+                        disabled={propPage === 1}
+                        className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-4 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPropPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          onClick={() => goToPropPage(page)}
+                          className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                            page === propPage
+                              ? "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
+                              : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 text-purple-300 hover:text-white"
+                          }`}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        onClick={() => goToPropPage(propPage + 1)}
+                        disabled={propPage === totalPropPages}
+                        className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-4 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         )}
 
-        {/* =================== AGREEMENTS TAB =================== */}
+        {/* ══════════════ AGREEMENTS TAB ══════════════ */}
         {activeTab === "agreements" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-white">📋 Agreement Requests</h3>
-              <Button onClick={fetchAgreements} className="bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm">🔄 Refresh</Button>
+              <Button onClick={fetchAgreements} variant="ghost"
+                className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl text-sm transition-all duration-200">
+                <RefreshCw className="h-4 w-4 mr-2" />Refresh
+              </Button>
             </div>
-            {approveSuccess && <div className="bg-green-500/20 border border-green-500/30 rounded-2xl p-4"><p className="text-green-300 text-sm">{approveSuccess}</p></div>}
-            {approveError && <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-4"><p className="text-red-300 text-sm">❌ {approveError}</p></div>}
+
+            {approveSuccess && (
+              <Alert className="bg-green-500/10 border-green-500/30">
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <AlertDescription className="text-green-300">✅ {approveSuccess}</AlertDescription>
+              </Alert>
+            )}
+            {approveError && (
+              <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-300">❌ {approveError}</AlertDescription>
+              </Alert>
+            )}
+
             {loadingAgreements ? (
               <p className="text-purple-300 animate-pulse">Loading agreements...</p>
             ) : agreements.filter(a => a.status === "pending").length === 0 ? (
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-10 border border-white/20 text-center">
-                <p className="text-4xl mb-4">📋</p>
-                <p className="text-white font-bold mb-2">No pending requests</p>
-                <p className="text-purple-300 text-sm">New tenant requests will appear here for your approval</p>
-              </div>
+              <Card className="bg-white/5 border-white/10 text-center">
+                <CardContent className="py-16">
+                  <p className="text-4xl mb-4">📋</p>
+                  <p className="text-white font-bold mb-2">No pending requests</p>
+                  <p className="text-purple-300 text-sm">New tenant requests will appear here for your approval</p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="space-y-4">
-                {agreements.filter((agreement) => agreement.status === "pending").map((agreement) => (
-                  <div key={agreement._id} className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 mb-3 inline-block">⏳ Pending</span>
-                        <h4 className="text-white font-bold text-lg mb-1">🏠 {agreement.property?.title}</h4>
-                        <p className="text-purple-300 text-sm mb-3">📍 {agreement.property?.location}</p>
-                        <div className="bg-white/5 rounded-xl p-3 border border-white/10 mb-3">
-                          <p className="text-purple-300 text-xs mb-1">Tenant</p>
-                          <p className="text-white font-semibold">👤 {agreement.tenant?.name}</p>
-                          <p className="text-purple-300 text-sm">{agreement.tenant?.email}</p>
-                          {agreement.tenant?.walletAddress && (
-                            <p className="text-purple-400 text-xs font-mono mt-1">{agreement.tenant.walletAddress.slice(0, 10)}...</p>
-                          )}
+                {agreements.filter(a => a.status === "pending").map((agreement) => (
+                  <Card key={agreement._id} className="bg-white/5 border-white/10">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <Badge variant="outline" className="border-yellow-500/30 text-yellow-300 bg-yellow-500/10 mb-3">
+                            ⏳ Pending
+                          </Badge>
+                          <h4 className="text-white font-bold text-lg mb-1">🏠 {agreement.property?.title}</h4>
+                          <p className="text-purple-300 text-sm mb-3">📍 {agreement.property?.location}</p>
+
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-3 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                            <p className="text-purple-300 text-xs mb-1">Tenant</p>
+                            <p className="text-white font-semibold">👤 {agreement.tenant?.name}</p>
+                            <p className="text-purple-300 text-sm">{agreement.tenant?.email}</p>
+                            {agreement.tenant?.walletAddress && (
+                              <p className="text-purple-400 text-xs font-mono mt-1">
+                                {agreement.tenant.walletAddress.slice(0, 10)}...
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex gap-4">
+                            {[
+                              { label: "Rent",     value: `₹${agreement.rentAmount?.toLocaleString()}` },
+                              { label: "Deposit",  value: `₹${agreement.depositAmount?.toLocaleString()}` },
+                              { label: "Duration", value: `${agreement.durationDays} days` },
+                            ].map(({ label, value }) => (
+                              <div key={label}>
+                                <p className="text-purple-300 text-xs mb-0.5">{label}</p>
+                                <p className="text-white font-bold text-sm">{value}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex gap-4">
-                          <div><p className="text-purple-300 text-xs">Rent</p><p className="text-white font-bold">₹{agreement.rentAmount?.toLocaleString()}</p></div>
-                          <div><p className="text-purple-300 text-xs">Deposit</p><p className="text-white font-bold">₹{agreement.depositAmount?.toLocaleString()}</p></div>
-                          <div><p className="text-purple-300 text-xs">Duration</p><p className="text-white font-bold">{agreement.durationDays} days</p></div>
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <Button onClick={() => handleApprove(agreement)} disabled={approvingId === agreement._id}
-                          className="bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm px-6">
+
+                        <Button
+                          onClick={() => handleApprove(agreement)}
+                          disabled={approvingId === agreement._id}
+                          className="bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm px-6 shrink-0 shadow-lg shadow-green-900/30 disabled:opacity-60"
+                        >
                           {approvingId === agreement._id ? "⏳ Deploying..." : "✅ Approve"}
                         </Button>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* =================== BLOCKCHAIN TAB =================== */}
+        {/* ══════════════ BLOCKCHAIN TAB ══════════════ */}
         {activeTab === "blockchain" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-white">⛓️ Active Agreements on Blockchain</h3>
-              <Button onClick={fetchAgreements} className="bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm">🔄 Refresh</Button>
+              <Button onClick={fetchAgreements} variant="ghost"
+                className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl text-sm transition-all duration-200">
+                <RefreshCw className="h-4 w-4 mr-2" />Refresh
+              </Button>
             </div>
+
             {agreements.filter(a => a.status === "active" || a.status === "approved").length === 0 ? (
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-10 border border-white/20 text-center">
-                <p className="text-4xl mb-4">⛓️</p>
-                <p className="text-white font-bold mb-2">No Active Agreements</p>
-                <p className="text-purple-300 text-sm">Active agreements will appear here after tenants sign</p>
-              </div>
+              <Card className="bg-white/5 border-white/10 text-center">
+                <CardContent className="py-16">
+                  <p className="text-4xl mb-4">⛓️</p>
+                  <p className="text-white font-bold mb-2">No Active Agreements</p>
+                  <p className="text-purple-300 text-sm">Active agreements will appear here after tenants sign</p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="space-y-4">
                 {agreements.filter(a => a.status === "active" || a.status === "approved").map((agreement) => (
@@ -459,6 +744,7 @@ export default function LandlordDashboard() {
             )}
           </div>
         )}
+
       </div>
     </div>
   );

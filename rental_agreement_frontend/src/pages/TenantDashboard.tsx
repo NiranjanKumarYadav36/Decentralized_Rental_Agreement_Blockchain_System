@@ -2,10 +2,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { Button } from "@/components/ui/button";
 import { getProperties } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { getTenantAgreements, updateAgreementStatus } from "@/services/api";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, RefreshCw, LogOut, LayoutDashboard } from "lucide-react";
 
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 const contractData = contractDataRaw as any;
@@ -16,11 +23,9 @@ export default function TenantDashboard() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    // Properties
     const [properties, setProperties] = useState<any[]>([]);
     const [loadingProps, setLoadingProps] = useState(true);
 
-    // Blockchain
     const [account, setAccount] = useState("");
     const [contract, setContract] = useState<any>(null);
     const [details, setDetails] = useState<any>(null);
@@ -36,7 +41,6 @@ export default function TenantDashboard() {
     const [loadingAgreements, setLoadingAgreements] = useState(false);
     const [approvedAgreement, setApprovedAgreement] = useState<any>(null);
 
-    // Load properties
     useEffect(() => {
         const fetch = async () => {
             try {
@@ -50,36 +54,20 @@ export default function TenantDashboard() {
         fetch();
     }, []);
 
-    // Connect wallet
     const connectWallet = async () => {
         try {
             setError("");
-            if (!window.ethereum) {
-                setError("MetaMask not found!");
-                return;
-            }
-
-            // Check if there is an approved agreement
+            if (!window.ethereum) { setError("MetaMask not found!"); return; }
             if (!approvedAgreement?.contractAddress) {
                 setError("No approved agreement found! Wait for landlord to approve.");
                 return;
             }
-
-            const accounts = await window.ethereum.request({
-                method: "eth_requestAccounts",
-            });
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
             const userAccount = accounts[0].toLowerCase();
             setAccount(userAccount);
-
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-
-            // Use DYNAMIC contract address from approved agreement
-            const c = new ethers.Contract(
-                approvedAgreement.contractAddress,
-                CONTRACT_ABI,
-                signer
-            );
+            const c = new ethers.Contract(approvedAgreement.contractAddress, CONTRACT_ABI, signer);
             setContract(c);
             await loadDetails(c, userAccount);
             setActiveTab("agreement");
@@ -92,14 +80,9 @@ export default function TenantDashboard() {
         try {
             const d = await c.getAgreementDetails();
             const agreementData = {
-                landlord: d[0],
-                tenant: d[1],
-                rentAmount: d[2],
-                depositAmount: d[3],
-                agreementEnd: d[4],
-                isActive: d[5],
-                totalRentPaid: d[6],
-                disputeActive: d[7],
+                landlord: d[0], tenant: d[1], rentAmount: d[2],
+                depositAmount: d[3], agreementEnd: d[4], isActive: d[5],
+                totalRentPaid: d[6], disputeActive: d[7],
             };
             setDetails(agreementData);
             const acc = currentAccount || account;
@@ -118,27 +101,17 @@ export default function TenantDashboard() {
             setLoadingAgreements(true);
             const res = await getTenantAgreements();
             setMyAgreements(res.data);
-
-            // Find approved agreement with contract address
             const approved = res.data.find(
                 (a: any) => (a.status === "approved" || a.status === "active") && a.contractAddress
             );
-            if (approved) {
-                setApprovedAgreement(approved);
-            } else {
-                setApprovedAgreement(null); // ← ADD THIS
-            }
-
+            setApprovedAgreement(approved || null);
             setLoadingAgreements(false);
         } catch {
             setLoadingAgreements(false);
         }
     };
 
-    useEffect(() => {
-        fetchMyAgreements();
-    }, []);
-
+    useEffect(() => { fetchMyAgreements(); }, []);
 
     const signAgreement = async () => {
         if (!contract || !details) return;
@@ -150,20 +123,15 @@ export default function TenantDashboard() {
             await tx.wait();
             setLoading("");
             await loadDetails(contract);
-
-            // ✅ Auto update status to active in backend
             if (approvedAgreement?._id) {
                 await updateAgreementStatus(approvedAgreement._id, { status: "active" });
                 await fetchMyAgreements();
             }
-
         } catch (err: any) {
             setError(err.reason || err.message || "Transaction failed.");
             setLoading("");
         }
     };
-
-
 
     const payRent = async () => {
         if (!contract || !details) return;
@@ -199,409 +167,394 @@ export default function TenantDashboard() {
     };
 
     const fmt = (val: any) => ethers.formatEther(val) + " ETH";
-    const fmtDate = (val: any) =>
-        new Date(Number(val) * 1000).toLocaleDateString();
-    const short = (addr: string) =>
-        addr ? addr.slice(0, 6) + "..." + addr.slice(-4) : "";
+    const fmtDate = (val: any) => new Date(Number(val) * 1000).toLocaleDateString();
+    const short = (addr: string) => addr ? addr.slice(0, 6) + "..." + addr.slice(-4) : "";
 
-    const handleLogout = () => {
-        logout();
-        navigate("/login");
+    const handleLogout = () => { logout(); navigate("/login"); };
+
+    const tabs = [
+        { id: "browse",     label: "🏠 Browse Properties", activeColor: "bg-purple-600" },
+        { id: "agreements", label: "📋 My Requests",        activeColor: "bg-green-600"  },
+        { id: "agreement",  label: "⛓️ My Agreement",       activeColor: "bg-purple-600" },
+    ] as const;
+
+    const statusBadge = (status: string) => {
+        const map: Record<string, string> = {
+            pending:  "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+            approved: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+            active:   "bg-green-500/20 text-green-300 border-green-500/30",
+        };
+        const label: Record<string, string> = {
+            pending:  "⏳ Pending Approval",
+            approved: "✅ Approved — Sign Now!",
+            active:   "🟢 Active",
+        };
+        const cls = map[status] || "bg-red-500/20 text-red-300 border-red-500/30";
+        return (
+            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${cls}`}>
+                {label[status] || "❌ " + status}
+            </span>
+        );
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
 
-            {/* NAVBAR */}
-            <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-                <h1
-                    className="text-white font-bold text-xl cursor-pointer"
-                    onClick={() => navigate("/properties")}
+            {/* BACKGROUND */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl" />
+                <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl" />
+                <div className="absolute inset-0 opacity-[0.03]"
+                    style={{
+                        backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                                          linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
+                        backgroundSize: "64px 64px",
+                    }}
+                />
+            </div>
+
+            {/* NAVBAR — matches Landing/Login/Register */}
+            <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-md">
+                <button
+                    onClick={() => navigate("/")}
+                    className="flex items-center gap-2 cursor-pointer group"
                 >
-                    🏠 RentalChain
-                </h1>
-                <div className="flex items-center gap-3">
-                    <span className="text-purple-300 text-sm">
+                    <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🏠</span>
+                    <span className="text-xl font-bold text-white tracking-tight">RentalChain</span>
+                </button>
+
+                <div className="flex items-center gap-4">
+                    <span className="text-purple-300 text-sm font-medium">
                         👋 {user?.name}
                     </span>
                     <Button
+                        variant="ghost"
                         onClick={() => navigate("/properties")}
-                        className="bg-white/10 hover:bg-white/20 text-white rounded-xl"
+                        className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-5 transition-all duration-200"
                     >
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
                         Browse
                     </Button>
                     <Button
                         onClick={handleLogout}
-                        className="bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-xl"
+                        className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-300 rounded-xl px-5 transition-all duration-200"
                     >
+                        <LogOut className="h-4 w-4 mr-2" />
                         Logout
                     </Button>
                 </div>
             </nav>
 
-            <div className="max-w-6xl mx-auto px-4 py-10">
+            <div className="relative z-10 max-w-6xl mx-auto px-6 py-10">
 
                 {/* HEADER */}
                 <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-white">
-                        🏡 Tenant Dashboard
-                    </h2>
-                    <p className="text-purple-300 mt-1">
-                        Browse properties and manage your rental agreement
-                    </p>
+                    <h2 className="text-3xl font-bold text-white tracking-tight">Tenant Dashboard</h2>
+                    <p className="text-purple-300 mt-1">Browse properties and manage your rental agreement</p>
                 </div>
 
                 {/* TABS */}
                 <div className="flex gap-2 mb-8">
-                    <button
-                        onClick={() => setActiveTab("browse")}
-                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "browse"
-                            ? "bg-purple-600 text-white"
-                            : "bg-white/10 text-purple-300 hover:bg-white/20"
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                                activeTab === tab.id
+                                    ? `${tab.activeColor} text-white shadow-lg`
+                                    : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
                             }`}
-                    >
-                        🏠 Browse Properties
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("agreements")}
-                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "agreements"
-                            ? "bg-green-600 text-white"
-                            : "bg-white/10 text-purple-300 hover:bg-white/20"
-                            }`}
-                    >
-                        📋 My Requests
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("agreement")}
-                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === "agreement"
-                            ? "bg-purple-600 text-white"
-                            : "bg-white/10 text-purple-300 hover:bg-white/20"
-                            }`}
-                    >
-                        ⛓️ My Agreement
-                    </button>
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* BROWSE TAB */}
+                {/* ── BROWSE TAB ── */}
                 {activeTab === "browse" && (
                     <div>
-                        <h3 className="text-xl font-bold text-white mb-4">
-                            Available Properties
-                        </h3>
-                        {loadingProps ? (
-                            <p className="text-purple-300 animate-pulse">
-                                Loading properties...
-                            </p>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {properties.map((property) => (
-                                    <div
-                                        key={property._id}
-                                        className="bg-white/10 backdrop-blur rounded-2xl border border-white/20 overflow-hidden hover:border-purple-400 transition-all cursor-pointer"
-                                        onClick={() => navigate(`/property/${property._id}`)}
-                                    >
-                                        <div className="h-40 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-                                            <span className="text-5xl">🏠</span>
-                                        </div>
-                                        <div className="p-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="bg-purple-500/20 text-purple-300 text-xs px-2 py-1 rounded-full">
-                                                    {property.roomType}
-                                                </span>
-                                                <span className={`text-xs px-2 py-1 rounded-full ${property.isAvailable
-                                                    ? "bg-green-500/20 text-green-300"
-                                                    : "bg-red-500/20 text-red-300"
-                                                    }`}>
-                                                    {property.isAvailable ? "✅ Available" : "❌ Taken"}
-                                                </span>
-                                            </div>
-                                            <h3 className="text-white font-bold mb-1">
-                                                {property.title}
-                                            </h3>
-                                            <p className="text-purple-300 text-sm mb-3">
-                                                📍 {property.location}
-                                            </p>
-                                            <div className="flex justify-between">
-                                                <div>
-                                                    <p className="text-purple-300 text-xs">Rent</p>
-                                                    <p className="text-white font-bold">
-                                                        ₹{property.rentAmount.toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-purple-300 text-xs">Deposit</p>
-                                                    <p className="text-white font-bold">
-                                                        ₹{property.depositAmount.toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Available Properties</h3>
+                                <p className="text-purple-300 text-sm mt-0.5">A quick look at the latest listings</p>
                             </div>
+                        </div>
+
+                        {loadingProps ? (
+                            <p className="text-purple-300 animate-pulse">Loading properties...</p>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {properties.slice(0, 3).map((property) => (
+                                        <Card
+                                            key={property._id}
+                                            onClick={() => navigate(`/property/${property._id}`)}
+                                            className="bg-white/5 border-white/10 overflow-hidden hover:border-purple-500/40 hover:bg-purple-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+                                        >
+                                            <div className="h-40 bg-gradient-to-br from-purple-600/60 to-blue-600/60 flex items-center justify-center">
+                                                <span className="text-5xl group-hover:scale-110 transition-transform duration-300">🏠</span>
+                                            </div>
+                                            <CardContent className="p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <Badge variant="outline" className="border-purple-500/40 text-purple-300 bg-purple-500/10 text-xs">
+                                                        {property.roomType}
+                                                    </Badge>
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`text-xs ${property.isAvailable
+                                                            ? "border-green-500/40 text-green-300 bg-green-500/10"
+                                                            : "border-red-500/40 text-red-300 bg-red-500/10"
+                                                        }`}
+                                                    >
+                                                        {property.isAvailable ? "✅ Available" : "❌ Taken"}
+                                                    </Badge>
+                                                </div>
+                                                <h3 className="text-white font-bold mb-1">{property.title}</h3>
+                                                <p className="text-purple-300 text-sm mb-4">📍 {property.location}</p>
+                                                <Separator className="bg-white/10 mb-4" />
+                                                <div className="flex justify-between">
+                                                    <div>
+                                                        <p className="text-purple-300 text-xs mb-0.5">Rent</p>
+                                                        <p className="text-white font-bold">₹{property.rentAmount.toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-purple-300 text-xs mb-0.5">Deposit</p>
+                                                        <p className="text-white font-bold">₹{property.depositAmount.toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+
+                                {/* VIEW ALL BANNER */}
+                                {properties.length > 3 && (
+                                    <Card
+                                        onClick={() => navigate("/properties")}
+                                        className="mt-6 bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-purple-500/20 hover:border-purple-500/40 cursor-pointer transition-all duration-300 group"
+                                    >
+                                        <CardContent className="py-6 flex items-center justify-between px-6">
+                                            <div>
+                                                <p className="text-white font-semibold">
+                                                    Browse all {properties.length} properties
+                                                </p>
+                                                <p className="text-purple-300 text-sm">
+                                                    Filter by location, room type and more
+                                                </p>
+                                            </div>
+                                            <Button
+                                                className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 shadow-lg shadow-purple-900/40 group-hover:-translate-x-0 transition-all duration-200"
+                                                onClick={() => navigate("/properties")}
+                                            >
+                                                View All →
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
 
-                {/* MY REQUESTS TAB */}
+                {/* ── MY REQUESTS TAB ── */}
                 {activeTab === "agreements" && (
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xl font-bold text-white">
-                                📋 My Agreement Requests
-                            </h3>
+                            <h3 className="text-xl font-bold text-white">📋 My Agreement Requests</h3>
                             <Button
                                 onClick={fetchMyAgreements}
-                                className="bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm"
+                                variant="ghost"
+                                className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl text-sm transition-all duration-200"
                             >
-                                🔄 Refresh
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Refresh
                             </Button>
                         </div>
 
                         {loadingAgreements ? (
                             <p className="text-purple-300 animate-pulse">Loading...</p>
                         ) : myAgreements.length === 0 ? (
-                            <div className="bg-white/10 backdrop-blur rounded-2xl p-10 border border-white/20 text-center">
-                                <p className="text-4xl mb-4">📋</p>
-                                <p className="text-white font-bold mb-2">No requests yet</p>
-                                <p className="text-purple-300 text-sm mb-6">
-                                    Browse properties and request an agreement
-                                </p>
-                                <Button
-                                    onClick={() => setActiveTab("browse")}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl"
-                                >
-                                    Browse Properties
-                                </Button>
-                            </div>
+                            <Card className="bg-white/5 border-white/10 text-center">
+                                <CardContent className="py-16">
+                                    <p className="text-4xl mb-4">📋</p>
+                                    <p className="text-white font-bold mb-2">No requests yet</p>
+                                    <p className="text-purple-300 text-sm mb-6">Browse properties and request an agreement</p>
+                                    <Button
+                                        onClick={() => setActiveTab("browse")}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/30"
+                                    >
+                                        Browse Properties
+                                    </Button>
+                                </CardContent>
+                            </Card>
                         ) : (
                             <div className="space-y-4">
                                 {myAgreements.map((agreement) => (
-                                    <div
-                                        key={agreement._id}
-                                        className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20"
-                                    >
-                                        <div className="flex gap-2 mb-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${agreement.status === "pending"
-                                                ? "bg-yellow-500/20 text-yellow-300"
-                                                : agreement.status === "approved"
-                                                    ? "bg-blue-500/20 text-blue-300"
-                                                    : agreement.status === "active"
-                                                        ? "bg-green-500/20 text-green-300"
-                                                        : "bg-red-500/20 text-red-300"
-                                                }`}>
-                                                {agreement.status === "pending" ? "⏳ Pending Approval"
-                                                    : agreement.status === "approved" ? "✅ Approved — Sign Now!"
-                                                        : agreement.status === "active" ? "🟢 Active"
-                                                            : "❌ " + agreement.status}
-                                            </span>
-                                        </div>
+                                    <Card key={agreement._id} className="bg-white/5 border-white/10">
+                                        <CardContent className="p-6">
+                                            <div className="mb-3">{statusBadge(agreement.status)}</div>
 
-                                        <h4 className="text-white font-bold text-lg mb-1">
-                                            🏠 {agreement.property?.title}
-                                        </h4>
-                                        <p className="text-purple-300 text-sm mb-3">
-                                            📍 {agreement.property?.location}
-                                        </p>
+                                            <h4 className="text-white font-bold text-lg mb-1">🏠 {agreement.property?.title}</h4>
+                                            <p className="text-purple-300 text-sm mb-4">📍 {agreement.property?.location}</p>
 
-                                        <div className="flex gap-4 mb-3">
-                                            <div>
-                                                <p className="text-purple-300 text-xs">Rent</p>
-                                                <p className="text-white font-bold">
-                                                    ₹{agreement.rentAmount?.toLocaleString()}
-                                                </p>
+                                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                                {[
+                                                    { label: "Rent",     value: `₹${agreement.rentAmount?.toLocaleString()}` },
+                                                    { label: "Deposit",  value: `₹${agreement.depositAmount?.toLocaleString()}` },
+                                                    { label: "Duration", value: `${agreement.durationDays} days` },
+                                                ].map(({ label, value }) => (
+                                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
+                                                        <p className="text-white font-bold text-sm">{value}</p>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div>
-                                                <p className="text-purple-300 text-xs">Deposit</p>
-                                                <p className="text-white font-bold">
-                                                    ₹{agreement.depositAmount?.toLocaleString()}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-purple-300 text-xs">Duration</p>
-                                                <p className="text-white font-bold">
-                                                    {agreement.durationDays} days
-                                                </p>
-                                            </div>
-                                        </div>
 
-                                        {/* If approved show contract address and sign button */}
-                                        {agreement.status === "approved" && agreement.contractAddress && (
-                                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                                                <p className="text-blue-300 text-sm font-semibold mb-2">
-                                                    🎉 Approved! Sign on blockchain now
-                                                </p>
-                                                <p className="text-white font-mono text-xs break-all mb-3">
-                                                    Contract: {agreement.contractAddress}
-                                                </p>
-                                                <Button
-                                                    onClick={() => {
-                                                        setActiveTab("agreement");
-                                                    }}
-                                                    className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl"
-                                                >
-                                                    ⛓️ Go to My Agreement Tab to Sign
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
+                                            {agreement.status === "approved" && agreement.contractAddress && (
+                                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                                                    <p className="text-blue-300 text-sm font-semibold mb-2">
+                                                        🎉 Approved! Sign on blockchain now
+                                                    </p>
+                                                    <p className="text-white font-mono text-xs break-all mb-3">
+                                                        Contract: {agreement.contractAddress}
+                                                    </p>
+                                                    <Button
+                                                        onClick={() => setActiveTab("agreement")}
+                                                        className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                                                    >
+                                                        ⛓️ Go to My Agreement Tab to Sign
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
                                 ))}
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* AGREEMENT TAB */}
+                {/* ── AGREEMENT TAB ── */}
                 {activeTab === "agreement" && (
                     <div className="space-y-6">
 
-                        {/* CONNECT WALLET */}
                         {!account ? (
-                            <div className="bg-white/10 backdrop-blur rounded-2xl p-10 text-center border border-white/20">
-                                <div className="text-6xl mb-4">🦊</div>
-                                <h3 className="text-2xl font-bold text-white mb-2">
-                                    Connect MetaMask
-                                </h3>
+                            <Card className="bg-white/5 border-white/10 text-center">
+                                <CardContent className="py-16 px-8">
+                                    <div className="text-6xl mb-4">🦊</div>
+                                    <h3 className="text-2xl font-bold text-white mb-2">Connect MetaMask</h3>
 
-                                {approvedAgreement ? (
-                                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-6 text-left">
-                                        <p className="text-green-300 font-semibold mb-2">
-                                            ✅ Agreement Approved!
+                                    {approvedAgreement ? (
+                                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-6 text-left">
+                                            <p className="text-green-300 font-semibold mb-2">✅ Agreement Approved!</p>
+                                            <p className="text-white text-sm mb-1">🏠 {approvedAgreement.property?.title}</p>
+                                            <p className="text-purple-300 text-xs font-mono break-all">
+                                                Contract: {approvedAgreement.contractAddress}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-purple-300 mb-6">
+                                            Connect your wallet to view and manage your rental agreement
                                         </p>
-                                        <p className="text-white text-sm mb-1">
-                                            🏠 {approvedAgreement.property?.title}
+                                    )}
+
+                                    <Button
+                                        onClick={connectWallet}
+                                        disabled={!approvedAgreement}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-base font-semibold shadow-lg shadow-purple-900/30 disabled:opacity-50 transition-all duration-200"
+                                    >
+                                        {approvedAgreement ? "Connect MetaMask to Sign" : "No Approved Agreement Yet"}
+                                    </Button>
+
+                                    {!approvedAgreement && (
+                                        <p className="text-purple-300 text-sm mt-4">
+                                            Request an agreement from a property and wait for landlord approval
                                         </p>
-                                        <p className="text-purple-300 text-xs font-mono break-all">
-                                            Contract: {approvedAgreement.contractAddress}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <p className="text-purple-200 mb-6">
-                                        Connect your wallet to view and manage your rental agreement
-                                    </p>
-                                )}
+                                    )}
 
-                                <Button
-                                    onClick={connectWallet}
-                                    disabled={!approvedAgreement}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-lg disabled:opacity-50"
-                                >
-                                    {approvedAgreement
-                                        ? "Connect MetaMask to Sign"
-                                        : "No Approved Agreement Yet"}
-                                </Button>
-
-                                {!approvedAgreement && (
-                                    <p className="text-purple-300 text-sm mt-4">
-                                        Request an agreement from a property and wait for landlord approval
-                                    </p>
-                                )}
-
-                                {error && <p className="text-red-400 mt-4">{error}</p>}
-                            </div>
+                                    {error && (
+                                        <Alert variant="destructive" className="bg-red-500/10 border-red-500/30 mt-4 text-left">
+                                            <AlertCircle className="h-4 w-4 text-red-400" />
+                                            <AlertDescription className="text-red-300 text-sm">{error}</AlertDescription>
+                                        </Alert>
+                                    )}
+                                </CardContent>
+                            </Card>
                         ) : (
                             <div className="space-y-6">
 
                                 {/* WALLET BADGE */}
-                                <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-purple-300 text-sm">
-                                            Connected Wallet
-                                        </p>
-                                        <p className="text-white font-mono">{short(account)}</p>
-                                    </div>
-                                    <div className={`px-4 py-2 rounded-full text-sm font-bold border ${role === "tenant"
-                                        ? "bg-green-500/20 text-green-300 border-green-500/30"
-                                        : role === "landlord"
-                                            ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                            : "bg-red-500/20 text-red-300 border-red-500/30"
-                                        }`}>
-                                        {role === "tenant" ? "🏡 Tenant"
-                                            : role === "landlord" ? "👔 Landlord"
-                                                : "⚠️ Unknown Role"}
-                                    </div>
-                                </div>
+                                <Card className="bg-white/5 border-white/10">
+                                    <CardContent className="p-4 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-purple-300 text-xs mb-1">Connected Wallet</p>
+                                            <p className="text-white font-mono font-semibold">{short(account)}</p>
+                                        </div>
+                                        <Badge
+                                            variant="outline"
+                                            className={`px-4 py-1.5 text-sm font-bold ${
+                                                role === "tenant"   ? "border-green-500/30 text-green-300 bg-green-500/10"
+                                                : role === "landlord" ? "border-blue-500/30 text-blue-300 bg-blue-500/10"
+                                                : "border-red-500/30 text-red-300 bg-red-500/10"
+                                            }`}
+                                        >
+                                            {role === "tenant" ? "🏡 Tenant" : role === "landlord" ? "👔 Landlord" : "⚠️ Unknown Role"}
+                                        </Badge>
+                                    </CardContent>
+                                </Card>
 
                                 {/* AGREEMENT DETAILS */}
                                 {details && (
-                                    <div className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
-                                        <h3 className="text-xl font-bold text-white mb-4">
-                                            📋 Agreement Details
-                                        </h3>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">Landlord</p>
-                                                <p className="text-white font-semibold">
-                                                    {short(details.landlord)}
-                                                </p>
+                                    <Card className="bg-white/5 border-white/10">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-white text-lg">📋 Agreement Details</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {[
+                                                    { label: "Landlord",        value: short(details.landlord) },
+                                                    { label: "Tenant",          value: short(details.tenant) },
+                                                    { label: "Monthly Rent",    value: fmt(details.rentAmount) },
+                                                    { label: "Deposit",         value: fmt(details.depositAmount) },
+                                                    { label: "Ends On",         value: fmtDate(details.agreementEnd) },
+                                                    { label: "Total Rent Paid", value: fmt(details.totalRentPaid) },
+                                                ].map(({ label, value }) => (
+                                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                                                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
+                                                        <p className="text-white font-semibold text-sm">{value}</p>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">Tenant</p>
-                                                <p className="text-white font-semibold">
-                                                    {short(details.tenant)}
-                                                </p>
+
+                                            <div className="flex gap-2 pt-1">
+                                                <Badge variant="outline" className={`${details.isActive ? "border-green-500/30 text-green-300 bg-green-500/10" : "border-red-500/30 text-red-300 bg-red-500/10"}`}>
+                                                    {details.isActive ? "✅ Active" : "❌ Inactive"}
+                                                </Badge>
+                                                {details.disputeActive && (
+                                                    <Badge variant="outline" className="border-yellow-500/30 text-yellow-300 bg-yellow-500/10">
+                                                        ⚠️ Dispute Active
+                                                    </Badge>
+                                                )}
                                             </div>
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">
-                                                    Monthly Rent
-                                                </p>
-                                                <p className="text-white font-semibold">
-                                                    {fmt(details.rentAmount)}
-                                                </p>
-                                            </div>
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">Deposit</p>
-                                                <p className="text-white font-semibold">
-                                                    {fmt(details.depositAmount)}
-                                                </p>
-                                            </div>
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">Ends On</p>
-                                                <p className="text-white font-semibold">
-                                                    {fmtDate(details.agreementEnd)}
-                                                </p>
-                                            </div>
-                                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                                <p className="text-purple-300 text-xs mb-1">
-                                                    Total Rent Paid
-                                                </p>
-                                                <p className="text-white font-semibold">
-                                                    {fmt(details.totalRentPaid)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-3 mt-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${details.isActive
-                                                ? "bg-green-500/20 text-green-300"
-                                                : "bg-red-500/20 text-red-300"
-                                                }`}>
-                                                {details.isActive ? "✅ Active" : "❌ Inactive"}
-                                            </span>
-                                            {details.disputeActive && (
-                                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300">
-                                                    ⚠️ Dispute Active
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
+                                        </CardContent>
+                                    </Card>
                                 )}
 
                                 {/* TENANT ACTIONS */}
                                 {role === "tenant" && details && (
-                                    <div className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
-                                        <h3 className="text-xl font-bold text-white mb-4">
-                                            🏡 Actions
-                                        </h3>
-                                        <div className="space-y-3">
+                                    <Card className="bg-white/5 border-white/10">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-white text-lg">🏡 Actions</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
 
-                                            {/* Sign Agreement */}
                                             {!details.isActive && (
-                                                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                                                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                                                     <p className="text-purple-200 text-sm mb-3">
                                                         Sign agreement and pay deposit:{" "}
-                                                        <span className="text-white font-bold">
-                                                            {fmt(details.depositAmount)}
-                                                        </span>
+                                                        <span className="text-white font-bold">{fmt(details.depositAmount)}</span>
                                                     </p>
                                                     <Button
                                                         onClick={signAgreement}
@@ -613,37 +566,30 @@ export default function TenantDashboard() {
                                                 </div>
                                             )}
 
-                                            {/* Pay Rent */}
                                             {details.isActive && (
-                                                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                                                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                                                     <p className="text-purple-200 text-sm mb-3">
                                                         Pay monthly rent:{" "}
-                                                        <span className="text-white font-bold">
-                                                            {fmt(details.rentAmount)}
-                                                        </span>
+                                                        <span className="text-white font-bold">{fmt(details.rentAmount)}</span>
                                                     </p>
                                                     <Button
                                                         onClick={payRent}
                                                         disabled={!!loading || details.disputeActive}
-                                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl"
+                                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/30"
                                                     >
                                                         💸 Pay Rent
                                                     </Button>
                                                 </div>
                                             )}
 
-                                            {/* Raise Dispute */}
                                             {details.isActive && !details.disputeActive && (
-                                                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                                                    <p className="text-purple-200 text-sm mb-3">
-                                                        Raise a dispute with landlord
-                                                    </p>
-                                                    <input
-                                                        type="text"
+                                                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                                    <p className="text-purple-200 text-sm mb-3">Raise a dispute with landlord</p>
+                                                    <Input
                                                         value={disputeReason}
                                                         onChange={(e) => setDisputeReason(e.target.value)}
                                                         placeholder="Describe your dispute..."
-                                                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-purple-300 mb-3 outline-none"
+                                                        className="bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl mb-3"
                                                     />
                                                     <Button
                                                         onClick={raiseDispute}
@@ -655,49 +601,41 @@ export default function TenantDashboard() {
                                                 </div>
                                             )}
 
-                                            {/* Active Dispute Info */}
                                             {details.disputeActive && disputeText && (
                                                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-                                                    <p className="text-yellow-300 font-semibold mb-1">
-                                                        ⚠️ Active Dispute
-                                                    </p>
+                                                    <p className="text-yellow-300 font-semibold mb-1">⚠️ Active Dispute</p>
                                                     <p className="text-white text-sm">{disputeText}</p>
-                                                    <p className="text-yellow-200 text-xs mt-2">
-                                                        Waiting for landlord to resolve...
-                                                    </p>
+                                                    <p className="text-yellow-200 text-xs mt-2">Waiting for landlord to resolve...</p>
                                                 </div>
                                             )}
-                                        </div>
-                                    </div>
+                                        </CardContent>
+                                    </Card>
                                 )}
 
                                 {/* LOADING */}
                                 {loading && (
-                                    <div className="bg-purple-500/20 border border-purple-500/30 rounded-2xl p-4 text-center">
-                                        <p className="text-purple-200 animate-pulse">
-                                            ⏳ {loading}
-                                        </p>
+                                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 text-center">
+                                        <p className="text-purple-300 animate-pulse">⏳ {loading}</p>
                                     </div>
                                 )}
 
                                 {/* ERROR */}
                                 {error && (
-                                    <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-4">
-                                        <p className="text-red-300">❌ {error}</p>
-                                    </div>
+                                    <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
+                                        <AlertCircle className="h-4 w-4 text-red-400" />
+                                        <AlertDescription className="text-red-300 text-sm">{error}</AlertDescription>
+                                    </Alert>
                                 )}
 
                                 {/* TX HASH */}
                                 {txHash && (
-                                    <div className="bg-green-500/20 border border-green-500/30 rounded-2xl p-4">
-                                        <p className="text-green-300 text-sm mb-1">
-                                            ✅ Transaction Successful!
-                                        </p>
+                                    <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+                                        <p className="text-green-300 text-sm font-semibold mb-1">✅ Transaction Successful!</p>
                                         <a
                                             href={"https://sepolia.etherscan.io/tx/" + txHash}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-blue-300 underline text-sm font-mono break-all"
+                                            className="text-blue-300 underline text-sm font-mono break-all hover:text-blue-200 transition-colors"
                                         >
                                             View on Etherscan →
                                         </a>
@@ -710,7 +648,7 @@ export default function TenantDashboard() {
                                         href={"https://sepolia.etherscan.io/address/" + CONTRACT_ADDRESS}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-purple-400 hover:text-purple-300 text-sm underline"
+                                        className="text-purple-400 hover:text-purple-300 text-sm underline underline-offset-4 transition-colors"
                                     >
                                         🔍 View Contract on Etherscan
                                     </a>
