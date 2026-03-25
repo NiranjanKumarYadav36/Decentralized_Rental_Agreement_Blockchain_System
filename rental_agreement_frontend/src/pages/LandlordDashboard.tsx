@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { addProperty, getMyProperties, updateProperty, getLandlordAgreements, approveAgreement, deleteProperty } from "@/services/api";
+import { addProperty, getMyProperties, updateProperty, getLandlordAgreements, approveAgreement, deleteProperty, updateWallet } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 import factoryDataRaw from "@/contracts/RentalFactory.json";
@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, RefreshCw, LogOut, Eye, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw, LogOut, Eye, ChevronLeft, ChevronRight, Plus, X, Wallet, Copy, ExternalLink } from "lucide-react";
 
 const contractData = contractDataRaw as any;
 const factoryData = factoryDataRaw as any;
@@ -28,7 +28,7 @@ const FACTORY_ABI = factoryData.abi;
 const PAGE_SIZE = 4;
 
 export default function LandlordDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const navigate = useNavigate();
 
   const [images, setImages] = useState<FileList | null>(null);
@@ -46,12 +46,19 @@ export default function LandlordDashboard() {
     rentAmount: "", depositAmount: "", roomType: "1BHK", amenities: ""
   });
 
-  const [activeTab, setActiveTab] = useState<"properties" | "agreements" | "blockchain">("properties");
+  const [activeTab, setActiveTab] = useState<"properties" | "agreements" | "blockchain" | "profile">("properties");
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loadingAgreements, setLoadingAgreements] = useState(false);
   const [approvingId, setApprovingId] = useState("");
   const [approveError, setApproveError] = useState("");
   const [approveSuccess, setApproveSuccess] = useState("");
+
+  // Wallet update
+  const [walletInput, setWalletInput] = useState(user?.walletAddress || "");
+  const [walletSaving, setWalletSaving] = useState(false);
+  const [walletSuccess, setWalletSuccess] = useState("");
+  const [walletError, setWalletError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -175,6 +182,44 @@ export default function LandlordDashboard() {
 
   const handleLogout = () => { logout(); navigate("/login"); };
 
+  const handleSaveWallet = async () => {
+    try {
+      setWalletSaving(true);
+      setWalletError("");
+      setWalletSuccess("");
+      if (!walletInput.startsWith("0x") || walletInput.length !== 42) {
+        setWalletError("Invalid address. Must start with 0x and be 42 characters.");
+        setWalletSaving(false);
+        return;
+      }
+      const res = await updateWallet({ walletAddress: walletInput });
+      login(res.data); // update context so UI reacts immediately
+      setWalletSuccess("Wallet address updated successfully!");
+      setWalletSaving(false);
+    } catch (err: any) {
+      setWalletError(err.response?.data?.message || "Failed to update wallet.");
+      setWalletSaving(false);
+    }
+  };
+
+  const handleAutoFillFromMetaMask = async () => {
+    try {
+      if (!window.ethereum) { setWalletError("MetaMask not found!"); return; }
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setWalletInput(accounts[0]);
+      setWalletError("");
+    } catch {
+      setWalletError("Could not connect to MetaMask.");
+    }
+  };
+
+  const handleCopy = () => {
+    if (!walletInput) return;
+    navigator.clipboard.writeText(walletInput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // Filtered properties (client-side)
   const filteredProps = properties.filter((p) => {
     const matchSearch =
@@ -198,6 +243,7 @@ export default function LandlordDashboard() {
     { key: "properties", label: "🏠 My Properties", activeColor: "bg-purple-600" },
     { key: "agreements", label: "📋 Agreements",    activeColor: "bg-green-600"  },
     { key: "blockchain", label: "⛓️ Blockchain",    activeColor: "bg-blue-600"   },
+    { key: "profile",    label: "👤 Profile",        activeColor: "bg-violet-600" },
   ] as const;
 
   return (
@@ -252,13 +298,26 @@ export default function LandlordDashboard() {
           </div>
           {activeTab === "properties" && (
             <Button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => {
+                if (!user?.walletAddress) {
+                  setActiveTab("profile");
+                  return;
+                }
+                setShowAddForm(!showAddForm);
+              }}
               className={`rounded-xl px-6 transition-all duration-200 ${showAddForm
                 ? "bg-white/10 hover:bg-white/20 border border-white/15 text-white"
-                : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
+                : !user?.walletAddress
+                  ? "bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-300"
+                  : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
               }`}
             >
-              {showAddForm ? <><X className="h-4 w-4 mr-2" />Cancel</> : <><Plus className="h-4 w-4 mr-2" />Add Property</>}
+              {showAddForm
+                ? <><X className="h-4 w-4 mr-2" />Cancel</>
+                : !user?.walletAddress
+                  ? <><Wallet className="h-4 w-4 mr-2" />Add Wallet First</>
+                  : <><Plus className="h-4 w-4 mr-2" />Add Property</>
+              }
             </Button>
           )}
         </div>
@@ -301,6 +360,27 @@ export default function LandlordDashboard() {
                 </Card>
               ))}
             </div>
+
+            {/* NO WALLET WARNING */}
+            {!user?.walletAddress && (
+              <Card className="bg-orange-500/10 border-orange-500/30">
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Wallet className="h-5 w-5 text-orange-400 shrink-0" />
+                    <div>
+                      <p className="text-orange-300 font-semibold text-sm">Wallet address required to add properties</p>
+                      <p className="text-orange-300/70 text-xs mt-0.5">You need a MetaMask wallet to deploy smart contracts and approve agreements.</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setActiveTab("profile")}
+                    className="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 text-orange-300 rounded-xl px-5 shrink-0 transition-all duration-200"
+                  >
+                    Add Wallet →
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             {/* ALERTS */}
             {success && (
@@ -473,11 +553,22 @@ export default function LandlordDashboard() {
                   <CardContent className="py-16">
                     <p className="text-6xl mb-4">🏠</p>
                     <p className="text-white text-xl font-bold mb-2">No properties yet</p>
-                    <p className="text-purple-300 mb-6">Add your first property to get started</p>
-                    <Button onClick={() => setShowAddForm(true)}
-                      className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/30">
-                      <Plus className="h-4 w-4 mr-2" />Add Property
-                    </Button>
+                    <p className="text-purple-300 mb-6">
+                      {user?.walletAddress
+                        ? "Add your first property to get started"
+                        : "Add your wallet address first, then list your properties"}
+                    </p>
+                    {user?.walletAddress ? (
+                      <Button onClick={() => setShowAddForm(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/30">
+                        <Plus className="h-4 w-4 mr-2" />Add Property
+                      </Button>
+                    ) : (
+                      <Button onClick={() => setActiveTab("profile")}
+                        className="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 text-orange-300 rounded-xl">
+                        <Wallet className="h-4 w-4 mr-2" />Add Wallet First
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ) : filteredProps.length === 0 ? (
@@ -742,6 +833,132 @@ export default function LandlordDashboard() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══════════════ PROFILE TAB ══════════════ */}
+        {activeTab === "profile" && (
+          <div className="space-y-6 max-w-xl">
+
+            {/* ACCOUNT DETAILS */}
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white text-lg">👤 Account Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                {[
+                  { label: "Name",  value: user?.name  },
+                  { label: "Email", value: user?.email },
+                  { label: "Role",  value: "👔 Landlord" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                    <p className="text-purple-300 text-xs mb-1">{label}</p>
+                    <p className="text-white font-semibold text-sm">{value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* WALLET UPDATE */}
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-purple-400" />
+                  MetaMask Wallet Address
+                </CardTitle>
+                <p className="text-purple-300/80 text-sm">
+                  {user?.walletAddress
+                    ? "Your wallet is linked. You can update it anytime below."
+                    : "⚠️ No wallet linked. You must add one to list properties and approve agreements."}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-0">
+
+                {/* Current wallet */}
+                {user?.walletAddress && (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-500/40 to-transparent" />
+                    <p className="text-purple-300 text-xs mb-1">Current Wallet</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-green-300 font-mono text-xs break-all">{user.walletAddress}</p>
+                      <button
+                        onClick={handleCopy}
+                        className="shrink-0 text-purple-400 hover:text-white transition-colors"
+                        title="Copy address"
+                      >
+                        {copied
+                          ? <CheckCircle2 className="h-4 w-4 text-green-400" />
+                          : <Copy className="h-4 w-4" />
+                        }
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input + auto-fill */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={walletInput}
+                      onChange={(e) => { setWalletInput(e.target.value); setWalletSuccess(""); setWalletError(""); }}
+                      placeholder="0x..."
+                      className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl font-mono text-sm"
+                    />
+                    <Button
+                      onClick={handleAutoFillFromMetaMask}
+                      variant="ghost"
+                      className="border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-500/10 text-purple-300 hover:text-white rounded-xl px-4 shrink-0 transition-all duration-200"
+                    >
+                      🦊 Auto-fill
+                    </Button>
+                  </div>
+                  <p className="text-purple-400 text-xs">
+                    Click <span className="text-purple-300 font-medium">Auto-fill</span> to import directly from MetaMask, or paste manually.
+                  </p>
+                </div>
+
+                {/* Alerts */}
+                {walletError && (
+                  <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
+                    <AlertCircle className="h-4 w-4 text-red-400" />
+                    <AlertDescription className="text-red-300 text-sm">{walletError}</AlertDescription>
+                  </Alert>
+                )}
+                {walletSuccess && (
+                  <Alert className="bg-green-500/10 border-green-500/30">
+                    <CheckCircle2 className="h-4 w-4 text-green-400" />
+                    <AlertDescription className="text-green-300 text-sm">{walletSuccess}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Separator className="bg-white/10" />
+
+                <Button
+                  onClick={handleSaveWallet}
+                  disabled={walletSaving || !walletInput}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-900/30 transition-all duration-200 disabled:opacity-50"
+                >
+                  {walletSaving
+                    ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                    : <><Wallet className="h-4 w-4 mr-2" />Save Wallet Address</>
+                  }
+                </Button>
+
+                {walletInput && walletInput.startsWith("0x") && walletInput.length === 42 && (
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${walletInput}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 text-purple-400 hover:text-purple-300 text-xs underline underline-offset-4 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    View on Sepolia Etherscan
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+
           </div>
         )}
 

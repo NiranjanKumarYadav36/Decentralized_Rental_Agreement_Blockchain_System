@@ -4,15 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { getProperties } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { getTenantAgreements, updateAgreementStatus } from "@/services/api";
-
+import { getTenantAgreements, updateAgreementStatus, updateWallet } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, RefreshCw, LogOut, LayoutDashboard } from "lucide-react";
+import { AlertCircle, RefreshCw, LogOut, LayoutDashboard, Wallet, CheckCircle2, Copy, ExternalLink } from "lucide-react";
 
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 const contractData = contractDataRaw as any;
@@ -35,11 +34,18 @@ export default function TenantDashboard() {
     const [error, setError] = useState("");
     const [disputeReason, setDisputeReason] = useState("");
     const [disputeText, setDisputeText] = useState("");
-    const [activeTab, setActiveTab] = useState<"browse" | "agreements" | "agreement">("browse");
+    const [activeTab, setActiveTab] = useState<"browse" | "agreements" | "agreement" | "profile">("browse");
 
     const [myAgreements, setMyAgreements] = useState<any[]>([]);
     const [loadingAgreements, setLoadingAgreements] = useState(false);
     const [approvedAgreement, setApprovedAgreement] = useState<any>(null);
+
+    // Wallet update
+    const [walletInput, setWalletInput] = useState(user?.walletAddress || "");
+    const [walletSaving, setWalletSaving] = useState(false);
+    const [walletSuccess, setWalletSuccess] = useState("");
+    const [walletError, setWalletError] = useState("");
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         const fetch = async () => {
@@ -172,10 +178,48 @@ export default function TenantDashboard() {
 
     const handleLogout = () => { logout(); navigate("/login"); };
 
+    const handleSaveWallet = async () => {
+        try {
+            setWalletSaving(true);
+            setWalletError("");
+            setWalletSuccess("");
+            if (!walletInput.startsWith("0x") || walletInput.length !== 42) {
+                setWalletError("Invalid wallet address. Must start with 0x and be 42 characters.");
+                setWalletSaving(false);
+                return;
+            }
+            await updateWallet({ walletAddress: walletInput });
+            setWalletSuccess("Wallet address updated successfully!");
+            setWalletSaving(false);
+        } catch (err: any) {
+            setWalletError(err.response?.data?.message || "Failed to update wallet.");
+            setWalletSaving(false);
+        }
+    };
+
+    const handleAutoFillFromMetaMask = async () => {
+        try {
+            if (!window.ethereum) { setWalletError("MetaMask not found!"); return; }
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            setWalletInput(accounts[0]);
+            setWalletError("");
+        } catch {
+            setWalletError("Could not connect to MetaMask.");
+        }
+    };
+
+    const handleCopy = () => {
+        if (!walletInput) return;
+        navigator.clipboard.writeText(walletInput);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     const tabs = [
         { id: "browse",     label: "🏠 Browse Properties", activeColor: "bg-purple-600" },
         { id: "agreements", label: "📋 My Requests",        activeColor: "bg-green-600"  },
         { id: "agreement",  label: "⛓️ My Agreement",       activeColor: "bg-purple-600" },
+        { id: "profile",    label: "👤 Profile",            activeColor: "bg-violet-600" },
     ] as const;
 
     const statusBadge = (status: string) => {
@@ -656,6 +700,136 @@ export default function TenantDashboard() {
 
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ── PROFILE TAB ── */}
+                {activeTab === "profile" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+
+                        {/* USER INFO CARD */}
+                        <Card className="bg-white/5 border-white/10">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-white text-lg">👤 Account Details</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 pt-0">
+                                {[
+                                    { label: "Name",  value: user?.name  },
+                                    { label: "Email", value: user?.email },
+                                    { label: "Role",  value: user?.role === "tenant" ? "🏡 Tenant" : user?.role },
+                                ].map(({ label, value }) => (
+                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
+                                        <p className="text-white font-semibold text-sm">{value}</p>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        {/* WALLET UPDATE CARD */}
+                        <Card className="bg-white/5 border-white/10">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-white text-lg flex items-center gap-2">
+                                    <Wallet className="h-5 w-5 text-purple-400" />
+                                    MetaMask Wallet Address
+                                </CardTitle>
+                                <p className="text-purple-300/80 text-sm">
+                                    Your wallet is required to sign agreements on the blockchain.
+                                    {user?.walletAddress
+                                        ? " You can update it anytime below."
+                                        : " You skipped this during registration — add it now."}
+                                </p>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-0">
+
+                                {/* Current wallet display */}
+                                {user?.walletAddress && (
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-500/40 to-transparent" />
+                                        <p className="text-purple-300 text-xs mb-1">Current Wallet</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-green-300 font-mono text-xs break-all">{user.walletAddress}</p>
+                                            <button
+                                                onClick={handleCopy}
+                                                className="shrink-0 text-purple-400 hover:text-white transition-colors"
+                                                title="Copy address"
+                                            >
+                                                {copied
+                                                    ? <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                                    : <Copy className="h-4 w-4" />
+                                                }
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Input + auto-fill */}
+                                <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={walletInput}
+                                            onChange={(e) => { setWalletInput(e.target.value); setWalletSuccess(""); setWalletError(""); }}
+                                            placeholder="0x..."
+                                            className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-purple-300/50 focus-visible:ring-purple-500 rounded-xl font-mono text-sm"
+                                        />
+                                        <Button
+                                            onClick={handleAutoFillFromMetaMask}
+                                            variant="ghost"
+                                            className="border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-500/10 text-purple-300 hover:text-white rounded-xl px-4 shrink-0 transition-all duration-200"
+                                            title="Auto-fill from MetaMask"
+                                        >
+                                            🦊 Auto-fill
+                                        </Button>
+                                    </div>
+                                    <p className="text-purple-400 text-xs">
+                                        Click <span className="text-purple-300 font-medium">Auto-fill</span> to import directly from MetaMask, or paste manually.
+                                    </p>
+                                </div>
+
+                                {/* Alerts */}
+                                {walletError && (
+                                    <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
+                                        <AlertCircle className="h-4 w-4 text-red-400" />
+                                        <AlertDescription className="text-red-300 text-sm">{walletError}</AlertDescription>
+                                    </Alert>
+                                )}
+                                {walletSuccess && (
+                                    <Alert className="bg-green-500/10 border-green-500/30">
+                                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                        <AlertDescription className="text-green-300 text-sm">{walletSuccess}</AlertDescription>
+                                    </Alert>
+                                )}
+
+                                <Separator className="bg-white/10" />
+
+                                <Button
+                                    onClick={handleSaveWallet}
+                                    disabled={walletSaving || !walletInput}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-900/30 transition-all duration-200 disabled:opacity-50"
+                                >
+                                    {walletSaving ? (
+                                        <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                                    ) : (
+                                        <><Wallet className="h-4 w-4 mr-2" />Save Wallet Address</>
+                                    )}
+                                </Button>
+
+                                {/* Etherscan shortcut */}
+                                {walletInput && walletInput.startsWith("0x") && walletInput.length === 42 && (
+                                    <a
+                                        href={`https://sepolia.etherscan.io/address/${walletInput}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-1.5 text-purple-400 hover:text-purple-300 text-xs underline underline-offset-4 transition-colors"
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                        View on Sepolia Etherscan
+                                    </a>
+                                )}
+                            </CardContent>
+                        </Card>
+
                     </div>
                 )}
             </div>

@@ -28,7 +28,7 @@ const register = async (req, res) => {
       password: hashedPassword,
       role: role || "tenant",
       phone: phone || "",
-      walletAddress: walletAddress || ""
+      walletAddress: walletAddress?.trim() || null
     });
 
     res.status(201).json({
@@ -96,11 +96,20 @@ const getProfile = async (req, res) => {
 const updateWallet = async (req, res) => {
   try {
     const { walletAddress } = req.body;
+
+    // Check if wallet already exists for another user
+    const existingUser = await User.findOne({ walletAddress });
+
+    if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+      return res.status(400).json({ message: "Wallet already in use" });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { walletAddress },
+      { walletAddress: walletAddress?.trim() || null },
       { new: true }
     ).select("-password");
+
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
