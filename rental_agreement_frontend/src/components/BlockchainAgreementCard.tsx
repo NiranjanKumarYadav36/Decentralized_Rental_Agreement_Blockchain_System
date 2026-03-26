@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ethers } from "ethers";
 import { Button } from "@/components/ui/button";
 import { updateAgreementStatus } from "@/services/api";
+import DownloadAgreementButton from "./DownloadAgreementButton";
 
 export default function BlockchainAgreementCard({
     agreement,
@@ -281,10 +282,17 @@ export default function BlockchainAgreementCard({
                                 </Button>
                             </div>
                         )}
+                        {/* DOWNLOAD AGREEMENT */}
+                        
+                            <DownloadAgreementButton
+                                agreementId={agreement._id}
+                                details={details}
+                                variant="ghost"
+                                className="text-red-400"
+                            />
                     </div>
                 )
             }
-
             {/* LOADING */}
             {
                 loading && (

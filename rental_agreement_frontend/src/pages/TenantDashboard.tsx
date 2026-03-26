@@ -12,8 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, RefreshCw, LogOut, LayoutDashboard, Wallet, CheckCircle2, Copy, ExternalLink } from "lucide-react";
-
 import contractDataRaw from "@/contracts/RentalAgreement.json";
+import DownloadAgreementButton from "@/components/DownloadAgreementButton";
+
 const contractData = contractDataRaw as any;
 const CONTRACT_ADDRESS = contractData.address || "";
 const CONTRACT_ABI = contractData.abi;
@@ -216,22 +217,22 @@ export default function TenantDashboard() {
     };
 
     const tabs = [
-        { id: "browse",     label: "🏠 Browse Properties", activeColor: "bg-purple-600" },
-        { id: "agreements", label: "📋 My Requests",        activeColor: "bg-green-600"  },
-        { id: "agreement",  label: "⛓️ My Agreement",       activeColor: "bg-purple-600" },
-        { id: "profile",    label: "👤 Profile",            activeColor: "bg-violet-600" },
+        { id: "browse", label: "🏠 Browse Properties", activeColor: "bg-purple-600" },
+        { id: "agreements", label: "📋 My Requests", activeColor: "bg-green-600" },
+        { id: "agreement", label: "⛓️ My Agreement", activeColor: "bg-purple-600" },
+        { id: "profile", label: "👤 Profile", activeColor: "bg-violet-600" },
     ] as const;
 
     const statusBadge = (status: string) => {
         const map: Record<string, string> = {
-            pending:  "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+            pending: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
             approved: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-            active:   "bg-green-500/20 text-green-300 border-green-500/30",
+            active: "bg-green-500/20 text-green-300 border-green-500/30",
         };
         const label: Record<string, string> = {
-            pending:  "⏳ Pending Approval",
+            pending: "⏳ Pending Approval",
             approved: "✅ Approved — Sign Now!",
-            active:   "🟢 Active",
+            active: "🟢 Active",
         };
         const cls = map[status] || "bg-red-500/20 text-red-300 border-red-500/30";
         return (
@@ -304,11 +305,10 @@ export default function TenantDashboard() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                                activeTab === tab.id
-                                    ? `${tab.activeColor} text-white shadow-lg`
-                                    : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
-                            }`}
+                            className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === tab.id
+                                ? `${tab.activeColor} text-white shadow-lg`
+                                : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -349,7 +349,7 @@ export default function TenantDashboard() {
                                                         className={`text-xs ${property.isAvailable
                                                             ? "border-green-500/40 text-green-300 bg-green-500/10"
                                                             : "border-red-500/40 text-red-300 bg-red-500/10"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {property.isAvailable ? "✅ Available" : "❌ Taken"}
                                                     </Badge>
@@ -444,8 +444,8 @@ export default function TenantDashboard() {
 
                                             <div className="grid grid-cols-3 gap-4 mb-4">
                                                 {[
-                                                    { label: "Rent",     value: `₹${agreement.rentAmount?.toLocaleString()}` },
-                                                    { label: "Deposit",  value: `₹${agreement.depositAmount?.toLocaleString()}` },
+                                                    { label: "Rent", value: `₹${agreement.rentAmount?.toLocaleString()}` },
+                                                    { label: "Deposit", value: `₹${agreement.depositAmount?.toLocaleString()}` },
                                                     { label: "Duration", value: `${agreement.durationDays} days` },
                                                 ].map(({ label, value }) => (
                                                     <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3">
@@ -454,7 +454,14 @@ export default function TenantDashboard() {
                                                     </div>
                                                 ))}
                                             </div>
-
+                                            {(agreement.status === "approved" || agreement.status === "active") && (
+                                                <DownloadAgreementButton
+                                                    agreementId={approvedAgreement._id}
+                                                    variant="ghost"
+                                                    details={details}
+                                                    className="text-red-400"
+                                                />
+                                            )}
                                             {agreement.status === "approved" && agreement.contractAddress && (
                                                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
                                                     <p className="text-blue-300 text-sm font-semibold mb-2">
@@ -511,6 +518,8 @@ export default function TenantDashboard() {
                                         {approvedAgreement ? "Connect MetaMask to Sign" : "No Approved Agreement Yet"}
                                     </Button>
 
+
+
                                     {!approvedAgreement && (
                                         <p className="text-purple-300 text-sm mt-4">
                                             Request an agreement from a property and wait for landlord approval
@@ -537,11 +546,10 @@ export default function TenantDashboard() {
                                         </div>
                                         <Badge
                                             variant="outline"
-                                            className={`px-4 py-1.5 text-sm font-bold ${
-                                                role === "tenant"   ? "border-green-500/30 text-green-300 bg-green-500/10"
+                                            className={`px-4 py-1.5 text-sm font-bold ${role === "tenant" ? "border-green-500/30 text-green-300 bg-green-500/10"
                                                 : role === "landlord" ? "border-blue-500/30 text-blue-300 bg-blue-500/10"
-                                                : "border-red-500/30 text-red-300 bg-red-500/10"
-                                            }`}
+                                                    : "border-red-500/30 text-red-300 bg-red-500/10"
+                                                }`}
                                         >
                                             {role === "tenant" ? "🏡 Tenant" : role === "landlord" ? "👔 Landlord" : "⚠️ Unknown Role"}
                                         </Badge>
@@ -557,11 +565,11 @@ export default function TenantDashboard() {
                                         <CardContent className="space-y-4">
                                             <div className="grid grid-cols-2 gap-4">
                                                 {[
-                                                    { label: "Landlord",        value: short(details.landlord) },
-                                                    { label: "Tenant",          value: short(details.tenant) },
-                                                    { label: "Monthly Rent",    value: fmt(details.rentAmount) },
-                                                    { label: "Deposit",         value: fmt(details.depositAmount) },
-                                                    { label: "Ends On",         value: fmtDate(details.agreementEnd) },
+                                                    { label: "Landlord", value: short(details.landlord) },
+                                                    { label: "Tenant", value: short(details.tenant) },
+                                                    { label: "Monthly Rent", value: fmt(details.rentAmount) },
+                                                    { label: "Deposit", value: fmt(details.depositAmount) },
+                                                    { label: "Ends On", value: fmtDate(details.agreementEnd) },
                                                     { label: "Total Rent Paid", value: fmt(details.totalRentPaid) },
                                                 ].map(({ label, value }) => (
                                                     <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
@@ -714,9 +722,9 @@ export default function TenantDashboard() {
                             </CardHeader>
                             <CardContent className="space-y-3 pt-0">
                                 {[
-                                    { label: "Name",  value: user?.name  },
+                                    { label: "Name", value: user?.name },
                                     { label: "Email", value: user?.email },
-                                    { label: "Role",  value: user?.role === "tenant" ? "🏡 Tenant" : user?.role },
+                                    { label: "Role", value: user?.role === "tenant" ? "🏡 Tenant" : user?.role },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
                                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />

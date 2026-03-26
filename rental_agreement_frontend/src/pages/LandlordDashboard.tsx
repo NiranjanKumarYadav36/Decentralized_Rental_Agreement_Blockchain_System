@@ -830,6 +830,7 @@ export default function LandlordDashboard() {
                     CONTRACT_ABI={CONTRACT_ABI}
                     onSuccess={fetchAgreements}
                   />
+                  
                 ))}
               </div>
             )}
@@ -838,7 +839,7 @@ export default function LandlordDashboard() {
 
         {/* ══════════════ PROFILE TAB ══════════════ */}
         {activeTab === "profile" && (
-          <div className="space-y-6 max-w-xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
 
             {/* ACCOUNT DETAILS */}
             <Card className="bg-white/5 border-white/10">
