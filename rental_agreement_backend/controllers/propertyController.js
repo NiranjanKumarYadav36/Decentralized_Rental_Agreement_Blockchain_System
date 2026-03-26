@@ -14,6 +14,8 @@ const addProperty = async (req, res) => {
   try {
     console.log("Body:", req.body);
     console.log("Files:", req.files);
+    console.log("FILES LENGTH:", req.files?.length);
+    console.log("FILES:", req.files);
 
     const {
       title, description, location,
@@ -22,7 +24,7 @@ const addProperty = async (req, res) => {
     } = req.body;
 
     if (!title || !description || !location ||
-        !rentAmount || !depositAmount || !roomType) {
+      !rentAmount || !depositAmount || !roomType) {
       return res.status(400).json({
         message: "All fields are required"
       });
@@ -63,9 +65,9 @@ const addProperty = async (req, res) => {
 const getProperties = async (req, res) => {
   try {
     const { roomType, location, minRent, maxRent } = req.query;
-    
+
     let filter = { isAvailable: true };
-    
+
     if (roomType) filter.roomType = roomType;
     if (location) filter.location = new RegExp(location, "i");
     if (minRent || maxRent) {
@@ -165,7 +167,7 @@ module.exports = {
   getProperties,
   getProperty,
   getMyProperties,
-  updateProperty, 
+  updateProperty,
   deleteProperty,
 };
 

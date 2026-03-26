@@ -23,7 +23,7 @@ export const updateWallet = (data: any) => API.put("/auth/wallet", data);
 // Property APIs
 export const getProperties = (filters: any) => API.get("/properties", { params: filters });
 export const getProperty = (id: any) => API.get(`/properties/${id}`);
-export const addProperty = (data: any) => API.post("/properties", data, { headers: { "Content-Type": "multipart/form-data"}});
+export const addProperty = (data: any) => API.post("/properties", data);
 export const getMyProperties = () => API.get("/properties/my");
 export const updateProperty = (id: any, data: any) => API.put(`/properties/${id}`, data);
 export const deleteProperty = (id: any) => API.delete(`/properties/${id}`);

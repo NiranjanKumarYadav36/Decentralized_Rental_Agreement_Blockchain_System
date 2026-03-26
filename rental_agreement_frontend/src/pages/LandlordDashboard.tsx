@@ -31,7 +31,7 @@ export default function LandlordDashboard() {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
 
-  const [images, setImages] = useState<FileList | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -86,6 +86,8 @@ export default function LandlordDashboard() {
     try {
       setSubmitting(true);
       setError("");
+      console.log("Selected images:", images);
+      console.log("Images length:", images?.length);
       const formData = new FormData();
       formData.append("title", form.title);
       formData.append("description", form.description);
@@ -94,13 +96,15 @@ export default function LandlordDashboard() {
       formData.append("depositAmount", form.depositAmount);
       formData.append("roomType", form.roomType);
       formData.append("amenities", form.amenities);
-      if (images && images.length > 0) {
-        Array.from(images).forEach((file) => formData.append("images", file));
+      if (images.length > 0) {
+        images.forEach((file) => {
+          formData.append("images", file);
+        });
       }
       await addProperty(formData);
       setSuccess("Property added successfully!");
       setShowAddForm(false);
-      setImages(null);
+      setImages([]);
       setForm({ title: "", description: "", location: "", rentAmount: "", depositAmount: "", roomType: "1BHK", amenities: "" });
       const res = await getMyProperties();
       setProperties(res.data);
@@ -455,11 +459,21 @@ export default function LandlordDashboard() {
                     </div>
                     <div className="col-span-2 space-y-2">
                       <Label className="text-purple-200 text-sm">Property Images (max 5)</Label>
-                      <input type="file" multiple accept="image/*" onChange={(e) => setImages(e.target.files)}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-purple-600 file:text-white cursor-pointer text-sm" />
-                      {images && images.length > 0 && (
-                        <p className="text-purple-300 text-xs">✅ {images.length} image(s) selected</p>
-                      )}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="file"
+                          multiple accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              const filesArray = Array.from(e.target.files);
+                              setImages((prev) => [...prev, ...filesArray]);
+                            }
+                          }}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-purple-600 file:text-white cursor-pointer text-sm" />
+                        {images && images.length > 0 && (
+                          <p className="text-purple-300 text-xs">✅ {images.length} image(s) selected</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-6">
@@ -467,7 +481,9 @@ export default function LandlordDashboard() {
                       className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-8">
                       {submitting ? "Adding..." : "✅ Add Property"}
                     </Button>
-                    <Button onClick={() => { setShowAddForm(false); setImages(null); }}
+                    <Button
+                      type="button"
+                      onClick={() => { setShowAddForm(false); setImages([]); }}
                       variant="ghost"
                       className="border border-white/15 hover:bg-white/10 text-white rounded-xl px-8">
                       Cancel
