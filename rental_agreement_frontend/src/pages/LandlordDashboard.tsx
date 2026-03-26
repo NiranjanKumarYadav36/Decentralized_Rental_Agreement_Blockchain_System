@@ -7,7 +7,6 @@ import { useAuth } from "@/context/AuthContext";
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 import factoryDataRaw from "@/contracts/RentalFactory.json";
 import BlockchainAgreementCard from "@/components/BlockchainAgreementCard";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, RefreshCw, LogOut, Eye, ChevronLeft, ChevronRight, Plus, X, Wallet, Copy, ExternalLink } from "lucide-react";
+import LandlordAnalytics from "@/components/LandlordAnalytics";
 
 const contractData = contractDataRaw as any;
 const factoryData = factoryDataRaw as any;
@@ -46,7 +46,7 @@ export default function LandlordDashboard() {
     rentAmount: "", depositAmount: "", roomType: "1BHK", amenities: ""
   });
 
-  const [activeTab, setActiveTab] = useState<"properties" | "agreements" | "blockchain" | "profile">("properties");
+  const [activeTab, setActiveTab] = useState<"properties" | "agreements" | "blockchain" | "analytics" | "profile">("properties");
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loadingAgreements, setLoadingAgreements] = useState(false);
   const [approvingId, setApprovingId] = useState("");
@@ -75,7 +75,7 @@ export default function LandlordDashboard() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === "agreements" || activeTab === "blockchain") {
+    if (activeTab === "agreements" || activeTab === "blockchain" || activeTab === "analytics") {
       fetchAgreements();
     }
   }, [activeTab]);
@@ -226,7 +226,7 @@ export default function LandlordDashboard() {
       !propFilter.search ||
       p.title.toLowerCase().includes(propFilter.search.toLowerCase()) ||
       p.location.toLowerCase().includes(propFilter.search.toLowerCase());
-    const matchType   = !propFilter.roomType || p.roomType === propFilter.roomType;
+    const matchType = !propFilter.roomType || p.roomType === propFilter.roomType;
     const matchStatus =
       !propFilter.status ||
       (propFilter.status === "available" && p.isAvailable) ||
@@ -236,14 +236,15 @@ export default function LandlordDashboard() {
 
   // Pagination
   const totalPropPages = Math.ceil(filteredProps.length / PAGE_SIZE);
-  const paginatedProps  = filteredProps.slice((propPage - 1) * PAGE_SIZE, propPage * PAGE_SIZE);
-  const goToPropPage    = (page: number) => setPropPage(page);
+  const paginatedProps = filteredProps.slice((propPage - 1) * PAGE_SIZE, propPage * PAGE_SIZE);
+  const goToPropPage = (page: number) => setPropPage(page);
 
   const tabs = [
     { key: "properties", label: "🏠 My Properties", activeColor: "bg-purple-600" },
-    { key: "agreements", label: "📋 Agreements",    activeColor: "bg-green-600"  },
-    { key: "blockchain", label: "⛓️ Blockchain",    activeColor: "bg-blue-600"   },
-    { key: "profile",    label: "👤 Profile",        activeColor: "bg-violet-600" },
+    { key: "agreements", label: "📋 Agreements", activeColor: "bg-green-600" },
+    { key: "blockchain", label: "⛓️ Blockchain", activeColor: "bg-blue-600" },
+    { key: "analytics", label: "📊 Analytics", activeColor: "bg-orange-600" },
+    { key: "profile", label: "👤 Profile", activeColor: "bg-violet-600" },
   ] as const;
 
   return (
@@ -310,7 +311,7 @@ export default function LandlordDashboard() {
                 : !user?.walletAddress
                   ? "bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-300"
                   : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
-              }`}
+                }`}
             >
               {showAddForm
                 ? <><X className="h-4 w-4 mr-2" />Cancel</>
@@ -328,11 +329,10 @@ export default function LandlordDashboard() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                activeTab === tab.key
-                  ? `${tab.activeColor} text-white shadow-lg`
-                  : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
-              }`}
+              className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === tab.key
+                ? `${tab.activeColor} text-white shadow-lg`
+                : "bg-white/5 border border-white/10 text-purple-300 hover:bg-white/10 hover:text-white"
+                }`}
             >
               {tab.label}
             </button>
@@ -346,9 +346,9 @@ export default function LandlordDashboard() {
             {/* STATS */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Total Properties", value: properties.length,                            icon: "🏠", color: "via-purple-500/40" },
-                { label: "Available",        value: properties.filter(p => p.isAvailable).length, icon: "✅", color: "via-green-500/40"  },
-                { label: "Occupied",         value: properties.filter(p => !p.isAvailable).length,icon: "👥", color: "via-blue-500/40"   },
+                { label: "Total Properties", value: properties.length, icon: "🏠", color: "via-purple-500/40" },
+                { label: "Available", value: properties.filter(p => p.isAvailable).length, icon: "✅", color: "via-green-500/40" },
+                { label: "Occupied", value: properties.filter(p => !p.isAvailable).length, icon: "👥", color: "via-blue-500/40" },
               ].map((stat) => (
                 <Card key={stat.label} className="bg-white/5 border-white/10 text-center relative overflow-hidden">
                   <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${stat.color} to-transparent`} />
@@ -527,9 +527,9 @@ export default function LandlordDashboard() {
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-white/20">
-                          <SelectItem value="all"       className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">All Status</SelectItem>
+                          <SelectItem value="all" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">All Status</SelectItem>
                           <SelectItem value="available" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">✅ Available</SelectItem>
-                          <SelectItem value="occupied"  className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">❌ Occupied</SelectItem>
+                          <SelectItem value="occupied" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer text-sm">❌ Occupied</SelectItem>
                         </SelectContent>
                       </Select>
                       {(propFilter.search || propFilter.roomType || propFilter.status) && (
@@ -601,7 +601,7 @@ export default function LandlordDashboard() {
                                 <Badge variant="outline" className={`text-xs ${property.isAvailable
                                   ? "border-green-500/40 text-green-300 bg-green-500/10"
                                   : "border-red-500/40 text-red-300 bg-red-500/10"
-                                }`}>
+                                  }`}>
                                   {property.isAvailable ? "✅ Available" : "❌ Occupied"}
                                 </Badge>
                               </div>
@@ -656,7 +656,7 @@ export default function LandlordDashboard() {
                                 className={`rounded-xl text-sm transition-all duration-200 ${property.isAvailable
                                   ? "bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300"
                                   : "bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-300"
-                                }`}
+                                  }`}
                               >
                                 {property.isAvailable ? "Mark Occupied" : "Mark Available"}
                               </Button>
@@ -688,11 +688,10 @@ export default function LandlordDashboard() {
                         <Button
                           key={page}
                           onClick={() => goToPropPage(page)}
-                          className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                            page === propPage
-                              ? "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
-                              : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 text-purple-300 hover:text-white"
-                          }`}
+                          className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${page === propPage
+                            ? "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/40"
+                            : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 text-purple-300 hover:text-white"
+                            }`}
                         >
                           {page}
                         </Button>
@@ -774,8 +773,8 @@ export default function LandlordDashboard() {
 
                           <div className="flex gap-4">
                             {[
-                              { label: "Rent",     value: `₹${agreement.rentAmount?.toLocaleString()}` },
-                              { label: "Deposit",  value: `₹${agreement.depositAmount?.toLocaleString()}` },
+                              { label: "Rent", value: `₹${agreement.rentAmount?.toLocaleString()}` },
+                              { label: "Deposit", value: `₹${agreement.depositAmount?.toLocaleString()}` },
                               { label: "Duration", value: `${agreement.durationDays} days` },
                             ].map(({ label, value }) => (
                               <div key={label}>
@@ -830,11 +829,18 @@ export default function LandlordDashboard() {
                     CONTRACT_ABI={CONTRACT_ABI}
                     onSuccess={fetchAgreements}
                   />
-                  
                 ))}
               </div>
             )}
           </div>
+        )}
+
+        {/* ══════════════ ANALYTICS TAB ══════════════ */}
+        {activeTab === "analytics" && (
+          <LandlordAnalytics
+            agreements={agreements}
+            properties={properties}
+          />
         )}
 
         {/* ══════════════ PROFILE TAB ══════════════ */}
@@ -848,9 +854,9 @@ export default function LandlordDashboard() {
               </CardHeader>
               <CardContent className="space-y-3 pt-0">
                 {[
-                  { label: "Name",  value: user?.name  },
+                  { label: "Name", value: user?.name },
                   { label: "Email", value: user?.email },
-                  { label: "Role",  value: "👔 Landlord" },
+                  { label: "Role", value: "👔 Landlord" },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
