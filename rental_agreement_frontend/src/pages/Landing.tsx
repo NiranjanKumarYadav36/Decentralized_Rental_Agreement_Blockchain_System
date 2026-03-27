@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const features = [
     {
@@ -111,19 +113,41 @@ export default function Landing() {
         </p>
 
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Button
-            onClick={() => navigate("/register")}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold shadow-xl shadow-purple-900/40 hover:shadow-purple-700/40 hover:-translate-y-0.5 transition-all duration-200"
-          >
-            Start For Free →
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/properties")}
-            className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white px-10 py-4 rounded-2xl text-lg transition-all duration-200"
-          >
-            Browse Properties
-          </Button>
+          {user? (
+            <>
+              <Button
+                onClick={() => navigate(`/dashboard/${user.role}`)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold"
+              >
+                Go to Dashboard →
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={logout}
+                className="border border-white/15 text-white px-10 py-4 rounded-2xl text-lg"
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={() => navigate("/register")}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold"
+              >
+                Start For Free →
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/properties")}
+                className="border border-white/15 text-white px-10 py-4 rounded-2xl text-lg"
+              >
+                Browse Properties
+              </Button>
+            </>
+          )}
         </div>
 
         {/* ── STATS ── */}
@@ -225,20 +249,42 @@ export default function Landing() {
             <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
               Join RentalChain today and experience the future of rental agreements
             </p>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Button
-                onClick={() => navigate("/register")}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold shadow-xl shadow-purple-900/40 hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Create Account →
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/properties")}
-                className="border border-white/20 hover:border-white/40 hover:bg-white/10 text-white px-10 py-4 rounded-2xl text-lg transition-all duration-200"
-              >
-                View Properties
-              </Button>
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              {user ? (
+                <>
+                  <Button
+                    onClick={() => navigate(`/dashboard/${user.role}`)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold"
+                  >
+                    Go to Dashboard →
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={logout}
+                    className="border border-white/15 text-white px-10 py-4 rounded-2xl text-lg"
+                  >
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={() => navigate("/register")}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-10 py-4 rounded-2xl text-lg font-semibold"
+                  >
+                    Start For Free →
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate("/properties")}
+                    className="border border-white/15 text-white px-10 py-4 rounded-2xl text-lg"
+                  >
+                    Browse Properties
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -261,12 +307,14 @@ export default function Landing() {
             <button onClick={() => navigate("/properties")} className="hover:text-white transition-colors duration-200">
               Browse
             </button>
-            <button onClick={() => navigate("/login")} className="hover:text-white transition-colors duration-200">
-              Login
-            </button>
-            <button onClick={() => navigate("/register")} className="hover:text-white transition-colors duration-200">
-              Register
-            </button>
+            {user ? (
+              <button onClick={logout}>Logout</button>
+            ) : (
+              <>
+                <button onClick={() => navigate("/login")} className="hover:text-white transition-colors duration-200">Login</button>
+                <button onClick={() => navigate("/register")} className="hover:text-white transition-colors duration-200">Register</button>
+              </>
+            )}
           </div>
         </div>
       </footer>

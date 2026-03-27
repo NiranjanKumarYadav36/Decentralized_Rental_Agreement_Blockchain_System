@@ -336,8 +336,19 @@ export default function TenantDashboard() {
                                             onClick={() => navigate(`/property/${property._id}`)}
                                             className="bg-white/5 border-white/10 overflow-hidden hover:border-purple-500/40 hover:bg-purple-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
                                         >
-                                            <div className="h-40 bg-gradient-to-br from-purple-600/60 to-blue-600/60 flex items-center justify-center">
-                                                <span className="text-5xl group-hover:scale-110 transition-transform duration-300">🏠</span>
+                                            {/* IMAGE */}
+                                            <div className="h-48 bg-gradient-to-br from-purple-600/60 to-blue-600/60 overflow-hidden">
+                                                {property.images?.length > 0 ? (
+                                                    <img
+                                                        src={property.images[0]}
+                                                        alt={property.title}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <span className="text-6xl group-hover:scale-110 transition-transform duration-300">🏠</span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <CardContent className="p-4">
                                                 <div className="flex items-center justify-between mb-3">
@@ -381,7 +392,7 @@ export default function TenantDashboard() {
                                         <CardContent className="py-6 flex items-center justify-between px-6">
                                             <div>
                                                 <p className="text-white font-semibold">
-                                                    Browse all {properties.length} properties
+                                                    Browse all {properties.length} available properties
                                                 </p>
                                                 <p className="text-purple-300 text-sm">
                                                     Filter by location, room type and more
