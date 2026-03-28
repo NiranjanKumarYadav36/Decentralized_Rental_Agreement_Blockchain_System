@@ -273,6 +273,10 @@ export default function TenantDashboard() {
                     <span className="text-purple-300 text-sm font-medium">
                         👋 {user?.name}
                     </span>
+                    <button onClick={() => navigate("/transactions")}
+                        className="text-purple-300 hover:text-white transition-colors duration-200 text-sm font-medium">
+                        Transactions
+                    </button>
                     <Button
                         variant="ghost"
                         onClick={() => navigate("/properties")}

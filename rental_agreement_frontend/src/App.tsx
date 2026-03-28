@@ -5,10 +5,11 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
-import LandlordDashboard from "@/pages/LandLordDashBoard";
+import LandlordDashboard from "./pages/LandlordDashboard";
 import TenantDashboard from "./pages/TenantDashboard";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
+import TransactionHistory from "./components/TransactionHistory";
 
 const ProtectedRoute = ({ children }: any) => {
   const { user } = useAuth();
@@ -41,6 +42,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/transactions" element={<TransactionHistory />} />
     </Routes>
   );
 }
