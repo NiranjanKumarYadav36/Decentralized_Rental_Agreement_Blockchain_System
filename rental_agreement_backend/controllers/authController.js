@@ -37,6 +37,7 @@ const register = async (req, res) => {
       email: user.email,
       role: user.role,
       walletAddress: user.walletAddress,
+      isZkVerified: user.isZkVerified,
       token: generateToken(user._id)
     });
 
@@ -73,6 +74,7 @@ const login = async (req, res) => {
       email: user.email,
       role: user.role,
       walletAddress: user.walletAddress,
+      isZkVerified: user.isZkVerified,
       token: generateToken(user._id)
     });
 
@@ -116,4 +118,43 @@ const updateWallet = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateWallet };
+// Verify ZK Proof (Simulated for Prototype)
+const verifyZk = async (req, res) => {
+  try {
+    const { proof, nullifier } = req.body;
+
+    // In a real implementation with Worldcoin/Sismo:
+    // const response = await axios.post("https://developer.worldcoin.org/api/v1/verify", { ... });
+    
+    // For this prototype, we simulate a successful ZK verification 
+    // if a proof string is provided.
+    if (!proof || !nullifier) {
+      return res.status(400).json({ message: "Invalid ZK proof or nullifier" });
+    }
+
+    // Check if nullifier already used
+    const existing = await User.findOne({ zkNullifier: nullifier });
+    if (existing && existing._id.toString() !== req.user._id.toString()) {
+      return res.status(400).json({ message: "Identity already verified by another account" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { 
+        isZkVerified: true, 
+        zkNullifier: nullifier 
+      },
+      { new: true }
+    ).select("-password");
+
+    res.json({
+      message: "ZK Identity Verified successfully",
+      user
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { register, login, getProfile, updateWallet, verifyZk };

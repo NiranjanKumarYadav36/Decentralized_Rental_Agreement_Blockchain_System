@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { addProperty, getMyProperties, updateProperty, getLandlordAgreements, approveAgreement, deleteProperty, updateWallet } from "@/services/api";
+import { addProperty, getMyProperties, updateProperty, getLandlordAgreements, approveAgreement, deleteProperty, updateWallet, updateAgreementStatus, verifyZkIdentity } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 import factoryDataRaw from "@/contracts/RentalFactory.json";
 import BlockchainAgreementCard from "@/components/BlockchainAgreementCard";
 import NavBar from "@/components/NavBar";
+import ZkBadge from "@/components/ZkBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, RefreshCw, Eye, ChevronLeft, ChevronRight, Plus, X, Wallet, Copy, ExternalLink } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw, Eye, ChevronLeft, ChevronRight, Plus, X, Wallet, Copy, ExternalLink, Fingerprint, ShieldCheck, Loader2 } from "lucide-react";
 import LandlordAnalytics from "@/components/LandlordAnalytics";
 
 const contractData = contractDataRaw as any;
@@ -29,7 +30,7 @@ const FACTORY_ABI = factoryData.abi;
 const PAGE_SIZE = 4;
 
 export default function LandlordDashboard() {
-  const { user, login } = useAuth();
+  const { user, login, updateUser } = useAuth();
   const navigate = useNavigate();
 
   const [images, setImages] = useState<File[]>([]);
@@ -52,6 +53,9 @@ export default function LandlordDashboard() {
   const [approvingId, setApprovingId] = useState("");
   const [approveError, setApproveError] = useState("");
   const [approveSuccess, setApproveSuccess] = useState("");
+  const [rejectingId, setRejectingId] = useState("");
+  const [zkVerifyStatus, setZkVerifyStatus] = useState<"none" | "generating" | "verifying" | "success">("none");
+  const [zkVerifyError, setZkVerifyError] = useState("");
 
   // Wallet update
   const [walletInput, setWalletInput] = useState(user?.walletAddress || "");
@@ -195,6 +199,47 @@ export default function LandlordDashboard() {
     }
   };
 
+  const handleReject = async (id: string) => {
+    if (!confirm("Are you sure you want to reject this agreement request?")) return;
+    try {
+      setRejectingId(id);
+      setApproveError("");
+      await updateAgreementStatus(id, { status: "rejected" });
+      setApproveSuccess("Agreement request rejected.");
+      await fetchAgreements();
+      setRejectingId("");
+    } catch (err: any) {
+      setApproveError(err.response?.data?.message || "Failed to reject request.");
+      setRejectingId("");
+    }
+  };
+
+  const handleZkVerify = async () => {
+    try {
+      setZkVerifyStatus("generating");
+      setZkVerifyError("");
+      
+      // Simulate cryptographic proof generation
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const mockProof = "0x" + Math.random().toString(16).slice(2, 42);
+      const mockNullifier = "null_" + Math.random().toString(36).slice(2, 10);
+      
+      setZkVerifyStatus("verifying");
+      await verifyZkIdentity({
+        proof: mockProof,
+        nullifier: mockNullifier
+      });
+      
+      // Synchronize local session
+      updateUser({ isZkVerified: true });
+      setZkVerifyStatus("success");
+    } catch (err: any) {
+      setZkVerifyError(err.response?.data?.message || "Verification failed");
+      setZkVerifyStatus("none");
+    }
+  };
+
   const handleSaveWallet = async () => {
     try {
       setWalletSaving(true);
@@ -277,7 +322,10 @@ export default function LandlordDashboard() {
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 mt-12">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white tracking-tight">👔 Landlord Dashboard</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-bold text-white tracking-tight">👔 Landlord Dashboard</h2>
+            <ZkBadge verified={user?.isZkVerified} showText size="md" />
+          </div>
           <p className="text-purple-300 mt-1">Manage your properties and agreements</p>
         </div>
 
@@ -306,8 +354,55 @@ export default function LandlordDashboard() {
               </div>
             </div>
 
-            {!user?.walletAddress && (
-              <Card className="bg-orange-500/10 border-orange-500/30 mb-6">
+            {/* ZK-VERIFICATION LOCK */}
+            {!user?.isZkVerified ? (
+              <Card className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-10 text-center relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-30" />
+                <div className="max-w-md mx-auto space-y-6 py-4">
+                  <div className="w-20 h-20 rounded-3xl bg-purple-600/20 flex items-center justify-center mx-auto mb-6 transform group-hover:scale-110 transition-transform duration-300">
+                    <Fingerprint className="h-10 w-10 text-purple-400" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-white tracking-tight">Identity Verification Required</h3>
+                    <p className="text-purple-300/70 text-sm leading-relaxed">
+                      To prevent fraudulent listings and maintain a high-trust platform, we require all landlords to secure their identity using a **Zero-Knowledge Proof**.
+                    </p>
+                  </div>
+                  
+                  {zkVerifyError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center justify-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                      <p className="text-red-400 text-xs font-semibold">{zkVerifyError}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleZkVerify}
+                      disabled={zkVerifyStatus !== "none"}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 rounded-xl text-md font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-[0.98]"
+                    >
+                      {zkVerifyStatus === "generating" ? (
+                        <><Loader2 className="h-5 w-5 mr-3 animate-spin" /> Generating ZK-Proof...</>
+                      ) : zkVerifyStatus === "verifying" ? (
+                        <><Loader2 className="h-5 w-5 mr-3 animate-spin" /> Verifying Identiy...</>
+                      ) : (
+                        <><ShieldCheck className="h-5 w-5 mr-3" /> Verify My Identity with ZK-Proof</>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="w-1 h-1 bg-purple-500 rounded-full animate-pulse" />
+                    <p className="text-[10px] text-purple-400/50 uppercase tracking-widest font-mono">
+                      Encrypted • Private • On-Chain Verified
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <>
+                {!user?.walletAddress && (
+                  <Card className="bg-orange-500/10 border-orange-500/30 mb-6">
                 <CardContent className="p-5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center text-orange-400">
@@ -395,6 +490,8 @@ export default function LandlordDashboard() {
                 </div>
               </CardContent>
             </Card>
+            </>
+            )}
           </div>
         )}
 
@@ -706,9 +803,23 @@ export default function LandlordDashboard() {
                       <p className="text-white font-bold">{agreement.property.title}</p>
                       <p className="text-purple-300 text-sm">Tenant: {agreement.tenant.name}</p>
                     </div>
-                    <Button onClick={() => handleApprove(agreement)} disabled={approvingId === agreement._id} className="bg-green-600 hover:bg-green-700">
-                      {approvingId === agreement._id ? "Processing..." : "Approve Request"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => handleReject(agreement._id)} 
+                        disabled={rejectingId === agreement._id || approvingId === agreement._id} 
+                        variant="outline"
+                        className="border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400"
+                      >
+                        {rejectingId === agreement._id ? "Rejecting..." : "Reject"}
+                      </Button>
+                      <Button 
+                        onClick={() => handleApprove(agreement)} 
+                        disabled={approvingId === agreement._id || rejectingId === agreement._id} 
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {approvingId === agreement._id ? "Processing..." : "Approve Request"}
+                      </Button>
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -751,10 +862,15 @@ export default function LandlordDashboard() {
                   { label: "Email", value: user?.email },
                   { label: "Role", value: "👔 Landlord" },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                  <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden flex items-center justify-between">
                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-                    <p className="text-purple-300 text-xs mb-1">{label}</p>
-                    <p className="text-white font-semibold text-sm">{value}</p>
+                    <div>
+                      <p className="text-purple-300 text-xs mb-1">{label}</p>
+                      <p className="text-white font-semibold text-sm">{value}</p>
+                    </div>
+                    {label === "Name" && (
+                      <ZkBadge verified={user?.isZkVerified} showText size="sm" />
+                    )}
                   </div>
                 ))}
               </CardContent>

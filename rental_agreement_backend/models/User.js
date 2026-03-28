@@ -38,6 +38,16 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  isZkVerified: {
+    type: Boolean,
+    default: false
+  },
+  zkNullifier: {
+    type: String,
+    unique: true,
+    sparse: true,
+    default: null
   }
 }, { timestamps: true });
 

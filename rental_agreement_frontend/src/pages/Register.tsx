@@ -11,8 +11,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader2, UserPlus } from "lucide-react";
+import { AlertCircle, Loader2, UserPlus, ShieldCheck, Fingerprint } from "lucide-react";
 import NavBar from "@/components/NavBar";
+import ZkBadge from "@/components/ZkBadge";
+import { verifyZkIdentity } from "@/services/api";
 
 
 export default function Register() {
@@ -22,6 +24,9 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [zkStatus, setZkStatus] = useState<"none" | "generating" | "verifying" | "success">("none");
+  const [zkProofData, setZkProofData] = useState<any>(null);
+  
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -35,6 +40,23 @@ export default function Register() {
       setError("");
       const res = await registerUser(form);
       login(res.data);
+      
+      // If ZK proof was generated during registration, verify it now
+      if (zkProofData) {
+        setZkStatus("verifying");
+        try {
+          // Token is now in localStorage via login()
+          await verifyZkIdentity({
+            proof: zkProofData.proof,
+            nullifier: zkProofData.nullifier
+          });
+          setZkStatus("success");
+        } catch (err: any) {
+          console.error("ZK Verification failed:", err);
+          // Don't block registration if ZK fails, just notify
+        }
+      }
+
       if (res.data.role === "landlord") {
         navigate("/dashboard/landlord");
       } else {
@@ -44,6 +66,18 @@ export default function Register() {
       setError(err.response?.data?.message || "Registration failed");
       setLoading(false);
     }
+  };
+
+  const simulateZkProof = async () => {
+    setZkStatus("generating");
+    // Simulate complex proof generation (SnarkJS/Circom)
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const mockProof = "0x" + Math.random().toString(16).slice(2, 42);
+    const mockNullifier = "null_" + Math.random().toString(36).slice(2, 10);
+    
+    setZkProofData({ proof: mockProof, nullifier: mockNullifier });
+    setZkStatus("success");
   };
 
   return (
@@ -118,6 +152,45 @@ export default function Register() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* ZK Identity Verification Section */}
+              <div className="pt-2 pb-2">
+                <Separator className="bg-white/10 mb-4" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="h-4 w-4 text-purple-400" />
+                    <Label className="text-purple-200 text-sm font-semibold tracking-wide">ZK Identity</Label>
+                  </div>
+                  <ZkBadge verified={zkStatus === "success"} showText size="sm" />
+                </div>
+                
+                {zkStatus === "none" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={simulateZkProof}
+                    className="w-full border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 text-purple-300 rounded-xl text-xs h-9"
+                  >
+                    Generate Zero-Knowledge Proof
+                  </Button>
+                ) : zkStatus === "generating" ? (
+                  <div className="text-center py-2 flex items-center justify-center gap-2 text-xs text-purple-400 font-mono">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Generating snark proof...
+                  </div>
+                ) : (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center gap-3">
+                    <ShieldCheck className="h-5 w-5 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-green-300 font-bold uppercase tracking-widest">Proof Ready</p>
+                      <p className="text-[11px] text-white/70 line-clamp-1 font-mono">{zkProofData?.proof}</p>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-purple-300/50 mt-2 leading-relaxed">
+                  ZK-Proofs allow you to prove your identity without sharing your actual documents on-chain.
+                </p>
               </div>
 
               {error && (

@@ -12,6 +12,7 @@ import {
   getActiveDisputes,
   resolveDisputeAdmin,
 } from "@/services/adminApi";
+import ZkBadge from "@/components/ZkBadge";
 
 // ─── helpers ─────────────────────────────────────
 const fmt = (n: number) =>
@@ -426,9 +427,12 @@ function UsersTab() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u._id}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: "#f1f5f9" }}>{u.name}</div>
-                      <div style={{ fontSize: 11, color: "#6b7280" }}>{u.email}</div>
+                    <td style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#f1f5f9" }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>{u.email}</div>
+                      </div>
+                      <ZkBadge verified={u.isZkVerified} size="sm" />
                     </td>
                     <td>
                       <span className={`ad-badge ${u.role === "landlord" ? "ad-badge-approved" : "ad-badge-purple"}`}>

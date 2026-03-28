@@ -16,6 +16,7 @@ import contractDataRaw from "@/contracts/RentalAgreement.json";
 import DownloadAgreementButton from "@/components/DownloadAgreementButton";
 import BlockchainAgreement from "@/components/BlockchainAgreement";
 import NavBar from "@/components/NavBar";
+import ZkBadge from "@/components/ZkBadge";
 
 const contractData = contractDataRaw as any;
 const CONTRACT_ADDRESS = contractData.address || "";
@@ -265,10 +266,11 @@ export default function TenantDashboard() {
             <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 mt-12">
 
                 {/* HEADER */}
-                <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Tenant Dashboard</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-3xl font-bold text-white tracking-tight">Tenant Dashboard</h2>
+                        <ZkBadge verified={user?.isZkVerified} showText size="md" />
+                    </div>
                     <p className="text-purple-300 mt-1">Browse properties and manage your rental agreement</p>
-                </div>
 
                 {/* TABS */}
                 <div className="flex gap-2 mb-8">
@@ -691,10 +693,15 @@ export default function TenantDashboard() {
                                     { label: "Email", value: user?.email },
                                     { label: "Role", value: user?.role === "tenant" ? "🏡 Tenant" : user?.role },
                                 ].map(({ label, value }) => (
-                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
+                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden flex items-center justify-between">
                                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
-                                        <p className="text-white font-semibold text-sm">{value}</p>
+                                        <div>
+                                            <p className="text-purple-300 text-xs mb-1">{label}</p>
+                                            <p className="text-white font-semibold text-sm">{value}</p>
+                                        </div>
+                                        {label === "Name" && (
+                                            <ZkBadge verified={user?.isZkVerified} showText size="sm" />
+                                        )}
                                     </div>
                                 ))}
                             </CardContent>

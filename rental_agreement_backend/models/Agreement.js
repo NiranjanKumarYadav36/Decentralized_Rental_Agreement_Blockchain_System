@@ -34,7 +34,7 @@ const agreementSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "approved", "active", "expired", "terminated"],
+    enum: ["pending", "approved", "active", "expired", "terminated", "rejected"],
     default: "pending"
   },
   disputeActive: {

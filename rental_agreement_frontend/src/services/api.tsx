@@ -19,6 +19,7 @@ export const registerUser = (data: any) => API.post("/auth/register", data);
 export const loginUser = (data: any) => API.post("/auth/login", data);
 export const getProfile = () => API.get("/auth/profile");
 export const updateWallet = (data: any) => API.put("/auth/wallet", data);
+export const verifyZkIdentity = (data: any) => API.post("/auth/verify-zk", data);
 
 // Property APIs
 export const getProperties = (filters: any) => API.get("/properties", { params: filters });

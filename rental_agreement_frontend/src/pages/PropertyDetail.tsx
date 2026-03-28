@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { DetailSkeleton } from "@/components/Skeleton";
 import { Star, MessageSquare } from "lucide-react";
 import RequestAgreementButton from "@/components/RequestAgreementButton";
+import ZkBadge from "@/components/ZkBadge";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -434,9 +435,12 @@ export default function PropertyDetail() {
                                     <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-violet-700 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg shadow-purple-900/40">
                                         {property.landlord?.name?.charAt(0).toUpperCase()}
                                     </div>
-                                    <div>
-                                        <p className="text-white font-semibold">{property.landlord?.name}</p>
-                                        <p className="text-purple-300 text-sm">{property.landlord?.email}</p>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white font-semibold truncate">{property.landlord?.name}</p>
+                                            <ZkBadge verified={property.landlord?.isZkVerified} size="sm" />
+                                        </div>
+                                        <p className="text-purple-300 text-sm truncate">{property.landlord?.email}</p>
                                     </div>
                                 </div>
 
