@@ -1,17 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getProperty } from "@/services/api";
+import { getProperty, getPropertyReviews, addReview, getTenantAgreements } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { DetailSkeleton } from "@/components/Skeleton";
+import { Star, MessageSquare } from "lucide-react";
 import RequestAgreementButton from "@/components/RequestAgreementButton";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, LayoutDashboard, LogIn } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
+
 
 export default function PropertyDetail() {
     const { id } = useParams();
@@ -20,6 +21,14 @@ export default function PropertyDetail() {
     const [property, setProperty] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState(0);
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [loadingReviews, setLoadingReviews] = useState(false);
+    const [isEligible, setIsEligible] = useState(false);
+    const [rating, setRating] = useState(5);
+    const [comment, setComment] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [reviewError, setReviewError] = useState("");
+    const [reviewSuccess, setReviewSuccess] = useState("");
 
     useEffect(() => {
         const fetch = async () => {
@@ -27,12 +36,64 @@ export default function PropertyDetail() {
                 const res = await getProperty(id!);
                 setProperty(res.data);
                 setLoading(false);
+                fetchReviews();
+                if (user && user.role === "tenant") {
+                    checkEligibility();
+                }
             } catch {
                 setLoading(false);
             }
         };
         fetch();
-    }, [id]);
+    }, [id, user]);
+
+    const fetchReviews = async () => {
+        try {
+            setLoadingReviews(true);
+            const res = await getPropertyReviews(id);
+            setReviews(res.data);
+            setLoadingReviews(false);
+        } catch {
+            setLoadingReviews(false);
+        }
+    };
+
+    const checkEligibility = async () => {
+        try {
+            const res = await getTenantAgreements();
+            // Check if any agreement for THIS property has status active, expired, or terminated
+            const hasHistory = res.data.some((a: any) => 
+                a.property._id === id && 
+                ["active", "expired", "terminated"].includes(a.status)
+            );
+            setIsEligible(hasHistory);
+        } catch (err) {
+            console.error("Error checking eligibility:", err);
+        }
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!comment.trim()) return;
+        try {
+            setSubmitting(true);
+            setReviewError("");
+            setReviewSuccess("");
+            await addReview({ property: id, rating, comment });
+            setReviewSuccess("Review posted successfully!");
+            setComment("");
+            setRating(5);
+            fetchReviews();
+            setSubmitting(false);
+        } catch (err: any) {
+            setReviewError(err.response?.data?.message || "Failed to post review");
+            setSubmitting(false);
+        }
+    };
+
+    const averageRating = reviews.length > 0 
+        ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+        : null;
 
     const bgShell = (
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -54,7 +115,7 @@ export default function PropertyDetail() {
         return (
             <div className="min-h-screen bg-[#0a0a0f] text-white">
                 {bgShell}
-                <Navbar />
+                <NavBar />
                 <DetailSkeleton />
             </div>
         );
@@ -64,7 +125,7 @@ export default function PropertyDetail() {
         return (
             <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col">
                 {bgShell}
-                <Navbar />
+                <NavBar />
                 <div className="flex-1 flex items-center justify-center">
                     <p className="text-red-400 text-xl">Property not found!</p>
                 </div>
@@ -76,49 +137,9 @@ export default function PropertyDetail() {
         <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
             {bgShell}
 
-            {/* NAVBAR */}
-            <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-md">
-                <button
-                    onClick={() => navigate("/")}
-                    className="flex items-center gap-2 cursor-pointer group"
-                >
-                    <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🏠</span>
-                    <span className="text-xl font-bold text-white tracking-tight">RentalChain</span>
-                </button>
+            <NavBar />
 
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        onClick={() => navigate("/properties")}
-                        className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-5 transition-all duration-200"
-                    >
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Listings
-                    </Button>
-
-                    {user ? (
-                        <Button
-                            onClick={() => navigate(
-                                user.role === "landlord" ? "/dashboard/landlord" : "/dashboard/tenant"
-                            )}
-                            className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5 shadow-lg shadow-purple-900/40 transition-all duration-200"
-                        >
-                            <LayoutDashboard className="h-4 w-4 mr-2" />
-                            Dashboard
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={() => navigate("/login")}
-                            className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5 shadow-lg shadow-purple-900/40 transition-all duration-200"
-                        >
-                            <LogIn className="h-4 w-4 mr-2" />
-                            Login to Apply
-                        </Button>
-                    )}
-                </div>
-            </nav>
-
-            <div className="relative z-10 max-w-5xl mx-auto px-6 py-10">
+            <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 mt-11">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
                     {/* ── LEFT COLUMN ── */}
@@ -177,9 +198,18 @@ export default function PropertyDetail() {
                                     </Badge>
                                 </div>
 
-                                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                                    {property.title}
-                                </h1>
+                                <div className="flex items-center justify-between gap-4 mb-2">
+                                    <h1 className="text-3xl font-bold text-white tracking-tight">
+                                        {property.title}
+                                    </h1>
+                                    {averageRating && (
+                                        <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full shrink-0">
+                                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                                            <span className="text-yellow-500 font-bold">{averageRating}</span>
+                                            <span className="text-yellow-500/60 text-xs">({reviews.length})</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <p className="text-purple-300 text-lg mb-4">📍 {property.location}</p>
                                 <Separator className="bg-white/10 mb-4" />
                                 <p className="text-purple-200 leading-relaxed">{property.description}</p>
@@ -229,6 +259,97 @@ export default function PropertyDetail() {
                                 </CardContent>
                             </Card>
                         )}
+
+                        {/* REVIEWS SECTION */}
+                        <div className="space-y-6 pt-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <MessageSquare className="h-5 w-5 text-purple-400" />
+                                <h3 className="text-xl font-bold text-white">Reviews & Ratings</h3>
+                            </div>
+
+                            {/* Review Form - only for eligible tenants */}
+                            {isEligible && (
+                                <Card className="bg-purple-500/5 border-purple-500/20">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-white text-base">Write a Review</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4 pt-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-purple-300 text-sm mr-2">Rating:</p>
+                                            <div className="flex gap-1">
+                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                    <Star
+                                                        key={s}
+                                                        onClick={() => setRating(s)}
+                                                        className={`h-6 w-6 cursor-pointer transition-all ${
+                                                            s <= rating ? "text-yellow-500 fill-yellow-500" : "text-white/20 hover:text-white/40"
+                                                        }`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={comment}
+                                            onChange={(e) => setComment(e.target.value)}
+                                            placeholder="Share your experience living here..."
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white placeholder:text-purple-300/30 focus:outline-none focus:border-purple-500/50 min-h-[100px] text-sm"
+                                        />
+                                        {reviewError && <p className="text-red-400 text-xs">{reviewError}</p>}
+                                        {reviewSuccess && <p className="text-green-400 text-xs">{reviewSuccess}</p>}
+                                        <Button
+                                            onClick={handleSubmitReview}
+                                            disabled={submitting || !comment.trim()}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 h-10 text-sm font-semibold"
+                                        >
+                                            {submitting ? "Posting..." : "Post Review"}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Reviews List */}
+                            <div className="space-y-4">
+                                {loadingReviews ? (
+                                    <div className="animate-pulse space-y-3">
+                                        {[1, 2].map(i => <div key={i} className="h-24 bg-white/5 rounded-xl" />)}
+                                    </div>
+                                ) : reviews.length === 0 ? (
+                                    <div className="text-center py-10 bg-white/5 border border-white/10 rounded-2xl">
+                                        <p className="text-purple-300/50">No reviews yet for this property.</p>
+                                    </div>
+                                ) : (
+                                    reviews.map((r) => (
+                                        <Card key={r._id} className="bg-white/5 border-white/10 relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 bottom-0 w-1 bg-purple-500/20" />
+                                            <CardContent className="p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-300 text-xs font-bold capitalize">
+                                                            {r.user?.name?.charAt(0)}
+                                                        </div>
+                                                        <span className="text-white font-semibold text-sm">{r.user?.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-0.5">
+                                                        {[1, 2, 3, 4, 5].map(s => (
+                                                            <Star 
+                                                                key={s} 
+                                                                className={`h-3.5 w-3.5 ${s <= r.rating ? "text-yellow-500 fill-yellow-500" : "text-white/10"}`} 
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <p className="text-purple-200 text-sm leading-relaxed">{r.comment}</p>
+                                                <p className="text-purple-400/50 text-[10px] mt-2">
+                                                    {new Date(r.createdAt).toLocaleDateString(undefined, {
+                                                        year: 'numeric', month: 'long', day: 'numeric'
+                                                    })}
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* ── RIGHT COLUMN ── */}

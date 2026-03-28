@@ -47,6 +47,10 @@ export const updateAgreementStatus = (id: any, data: any) =>
 export const getAgreement = (id: any) =>
   API.get(`/agreements/${id}`);
 
+// Review APIs
+export const getPropertyReviews = (propertyId: any) => API.get(`/reviews/${propertyId}`);
+export const addReview = (data: any) => API.post("/reviews", data);
+
 
 // Admin APIs
 export const getAllUsers         = ()         => API.get("/admin/users");

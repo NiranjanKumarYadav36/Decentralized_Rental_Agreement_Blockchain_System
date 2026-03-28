@@ -12,7 +12,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, Loader2, UserPlus } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
+
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -55,11 +56,11 @@ export default function Register() {
         <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl" />
       </div>
 
-      <Navbar />
+      <NavBar />
 
       {/* REGISTER CARD */}
       <div className="relative z-10 flex items-center justify-center px-4 pt-12 pb-16">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md mt-10">
 
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white tracking-tight">Create Account</h1>

@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProperties } from "@/services/api";
-import { useAuth } from "@/context/AuthContext";
 import { PropertyListSkeleton } from "@/components/Skeleton";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
+
 
 const PAGE_SIZE = 6;
 
@@ -21,7 +21,6 @@ export default function Properties() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState({ roomType: "", location: "" });
     const [currentPage, setCurrentPage] = useState(1);
-    const { user } = useAuth();
     const navigate = useNavigate();
 
     const fetchProperties = async (currentFilter = filter) => {
@@ -66,9 +65,9 @@ export default function Properties() {
                 />
             </div>
 
-            <Navbar />
+            <NavBar />
 
-            <div className="relative z-10 max-w-6xl mx-auto px-6 py-10">
+            <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 mt-12">
 
                 {/* HEADER */}
                 <div className="text-center mb-10">

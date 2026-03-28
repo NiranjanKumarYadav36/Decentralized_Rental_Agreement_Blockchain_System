@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { useAuth } from "@/context/AuthContext";
 import { getTenantAgreements, getLandlordAgreements } from "@/services/api";
@@ -14,7 +13,8 @@ import {
   AlertCircle, RefreshCw, ExternalLink, ArrowUpRight,
   ArrowDownLeft, FileText, Shield, XCircle, Copy, CheckCircle2
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
+
 
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 const contractData = contractDataRaw as any;
@@ -292,9 +292,9 @@ export default function TransactionHistory() {
         />
       </div>
 
-      <Navbar />
+      <NavBar />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10">
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 mt-12">
 
         {/* HEADER */}
         <div className="flex items-center justify-between mb-8">

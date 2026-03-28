@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Loader2, LogIn } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
+
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -52,7 +53,7 @@ export default function Login() {
         <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl" />
       </div>
 
-      <Navbar />
+      <NavBar />
 
       {/* LOGIN CARD */}
       <div className="relative z-10 flex items-center justify-center px-4 pt-20 pb-16">

@@ -11,16 +11,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, RefreshCw, LogOut, LayoutDashboard, Wallet, CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { AlertCircle, RefreshCw, Wallet, CheckCircle2, Copy, ExternalLink, Star } from "lucide-react";
 import contractDataRaw from "@/contracts/RentalAgreement.json";
 import DownloadAgreementButton from "@/components/DownloadAgreementButton";
+import BlockchainAgreement from "@/components/BlockchainAgreement";
+import NavBar from "@/components/NavBar";
 
 const contractData = contractDataRaw as any;
 const CONTRACT_ADDRESS = contractData.address || "";
 const CONTRACT_ABI = contractData.abi;
 
 export default function TenantDashboard() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
 
     const [properties, setProperties] = useState<any[]>([]);
@@ -174,10 +176,9 @@ export default function TenantDashboard() {
     };
 
     const fmt = (val: any) => ethers.formatEther(val) + " ETH";
-    const fmtDate = (val: any) => new Date(Number(val) * 1000).toLocaleDateString();
     const short = (addr: string) => addr ? addr.slice(0, 6) + "..." + addr.slice(-4) : "";
 
-    const handleLogout = () => { logout(); navigate("/login"); };
+
 
     const handleSaveWallet = async () => {
         try {
@@ -259,43 +260,9 @@ export default function TenantDashboard() {
                 />
             </div>
 
-            {/* NAVBAR — matches Landing/Login/Register */}
-            <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-md">
-                <button
-                    onClick={() => navigate("/")}
-                    className="flex items-center gap-2 cursor-pointer group"
-                >
-                    <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🏠</span>
-                    <span className="text-xl font-bold text-white tracking-tight">RentalChain</span>
-                </button>
+            <NavBar />
 
-                <div className="flex items-center gap-4">
-                    <span className="text-purple-300 text-sm font-medium">
-                        👋 {user?.name}
-                    </span>
-                    <button onClick={() => navigate("/transactions")}
-                        className="text-purple-300 hover:text-white transition-colors duration-200 text-sm font-medium">
-                        Transactions
-                    </button>
-                    <Button
-                        variant="ghost"
-                        onClick={() => navigate("/properties")}
-                        className="border border-white/15 hover:border-white/30 hover:bg-white/10 text-white rounded-xl px-5 transition-all duration-200"
-                    >
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Browse
-                    </Button>
-                    <Button
-                        onClick={handleLogout}
-                        className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-300 rounded-xl px-5 transition-all duration-200"
-                    >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Logout
-                    </Button>
-                </div>
-            </nav>
-
-            <div className="relative z-10 max-w-6xl mx-auto px-6 py-10">
+            <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 mt-12">
 
                 {/* HEADER */}
                 <div className="mb-8">
@@ -469,13 +436,26 @@ export default function TenantDashboard() {
                                                     </div>
                                                 ))}
                                             </div>
-                                            {(agreement.status === "approved" || agreement.status === "active") && (
-                                                <DownloadAgreementButton
-                                                    agreementId={approvedAgreement._id}
-                                                    variant="ghost"
-                                                    details={details}
-                                                    className="text-red-400"
-                                                />
+                                            {(agreement.status === "approved" || agreement.status === "active" || agreement.status === "expired" || agreement.status === "terminated") && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <DownloadAgreementButton
+                                                        agreementId={agreement._id}
+                                                        variant="ghost"
+                                                        details={details}
+                                                        className="text-red-400 border-red-400/20 hover:bg-red-400/10"
+                                                    />
+                                                    
+                                                    {["active", "expired", "terminated"].includes(agreement.status) && (
+                                                        <Button
+                                                            onClick={() => navigate(`/property/${agreement.property?._id}`)}
+                                                            variant="outline"
+                                                            className="border-yellow-500/40 text-yellow-500 hover:bg-yellow-500/10 rounded-xl"
+                                                        >
+                                                            <Star className="h-4 w-4 mr-2 fill-yellow-500" />
+                                                            Rate & Review
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             )}
                                             {agreement.status === "approved" && agreement.contractAddress && (
                                                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
@@ -572,41 +552,11 @@ export default function TenantDashboard() {
                                 </Card>
 
                                 {/* AGREEMENT DETAILS */}
-                                {details && (
-                                    <Card className="bg-white/5 border-white/10">
-                                        <CardHeader className="pb-2">
-                                            <CardTitle className="text-white text-lg">📋 Agreement Details</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {[
-                                                    { label: "Landlord", value: short(details.landlord) },
-                                                    { label: "Tenant", value: short(details.tenant) },
-                                                    { label: "Monthly Rent", value: fmt(details.rentAmount) },
-                                                    { label: "Deposit", value: fmt(details.depositAmount) },
-                                                    { label: "Ends On", value: fmtDate(details.agreementEnd) },
-                                                    { label: "Total Rent Paid", value: fmt(details.totalRentPaid) },
-                                                ].map(({ label, value }) => (
-                                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3 relative overflow-hidden">
-                                                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-                                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
-                                                        <p className="text-white font-semibold text-sm">{value}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <div className="flex gap-2 pt-1">
-                                                <Badge variant="outline" className={`${details.isActive ? "border-green-500/30 text-green-300 bg-green-500/10" : "border-red-500/30 text-red-300 bg-red-500/10"}`}>
-                                                    {details.isActive ? "✅ Active" : "❌ Inactive"}
-                                                </Badge>
-                                                {details.disputeActive && (
-                                                    <Badge variant="outline" className="border-yellow-500/30 text-yellow-300 bg-yellow-500/10">
-                                                        ⚠️ Dispute Active
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                {details && approvedAgreement && (
+                                    <BlockchainAgreement 
+                                        agreement={approvedAgreement} 
+                                        details={details} 
+                                    />
                                 )}
 
                                 {/* TENANT ACTIONS */}

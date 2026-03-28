@@ -52,10 +52,10 @@ export default function DownloadAgreementButton({
       // Prefer on-chain data for financial fields (more accurate)
       const rentAmt    = details?.rentAmount
         ? fmtEth(details.rentAmount)
-        : `₹${ag.rentAmount?.toLocaleString() || "—"}`;
+        : `INR ${ag.rentAmount?.toLocaleString() || "—"}`;
       const depositAmt = details?.depositAmount
         ? fmtEth(details.depositAmount)
-        : `₹${ag.depositAmount?.toLocaleString() || "—"}`;
+        : `INR ${ag.depositAmount?.toLocaleString() || "—"}`;
 
       // End date: from chain (BigInt timestamp) or from DB
       const endDate = details?.agreementEnd
