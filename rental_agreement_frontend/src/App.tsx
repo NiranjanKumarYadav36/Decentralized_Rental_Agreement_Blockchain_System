@@ -10,6 +10,8 @@ import TenantDashboard from "./pages/TenantDashboard";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import TransactionHistory from "./components/TransactionHistory";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const ProtectedRoute = ({ children }: any) => {
   const { user } = useAuth();
@@ -43,6 +45,9 @@ export default function App() {
         }
       />
       <Route path="/transactions" element={<TransactionHistory />} />
+      {/* Admin Routes */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
     </Routes>
   );
 }

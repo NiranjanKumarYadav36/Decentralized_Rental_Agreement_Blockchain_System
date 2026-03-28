@@ -47,3 +47,11 @@ export const updateAgreementStatus = (id: any, data: any) =>
 export const getAgreement = (id: any) =>
   API.get(`/agreements/${id}`);
 
+
+// Admin APIs
+export const getAllUsers         = ()         => API.get("/admin/users");
+export const deactivateUser      = (id: any, data: any) => API.put(`/admin/users/${id}`, data);
+export const getAllProperties     = ()         => API.get("/admin/properties");
+export const adminDeleteProperty = (id: any)       => API.delete(`/admin/properties/${id}`);
+export const getAllAgreements     = ()         => API.get("/admin/agreements");
+export const getPlatformStats    = ()         => API.get("/admin/stats");
