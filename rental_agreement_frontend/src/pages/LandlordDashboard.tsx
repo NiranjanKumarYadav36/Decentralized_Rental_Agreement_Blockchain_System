@@ -297,7 +297,7 @@ export default function LandlordDashboard() {
   const tabs = [
     { key: "properties", label: "🏠 My Properties", activeColor: "bg-purple-600" },
     { key: "add-property", label: "➕ Add Property", activeColor: "bg-green-600" },
-    { key: "agreements", label: "📋 Agreements", activeColor: "bg-green-600" },
+    { key: "agreements", label: "📋 Agreements Request", activeColor: "bg-green-600" },
     { key: "blockchain", label: "⛓️ Blockchain", activeColor: "bg-blue-600" },
     { key: "analytics", label: "📊 Analytics", activeColor: "bg-orange-600" },
     { key: "profile", label: "👤 Profile", activeColor: "bg-violet-600" },

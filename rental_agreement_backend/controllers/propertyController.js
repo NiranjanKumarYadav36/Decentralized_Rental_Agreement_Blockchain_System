@@ -64,9 +64,13 @@ const addProperty = async (req, res) => {
 // Get All Available Properties
 const getProperties = async (req, res) => {
   try {
-    const { roomType, location, minRent, maxRent } = req.query;
+    const { roomType, location, minRent, maxRent, isAvailable } = req.query;
 
-    let filter = { isAvailable: true };
+    let filter = {};
+
+    if (isAvailable !== undefined && isAvailable !== "") {
+      filter.isAvailable = isAvailable === "true";
+    }
 
     if (roomType) filter.roomType = roomType;
     if (location) filter.location = new RegExp(location, "i");

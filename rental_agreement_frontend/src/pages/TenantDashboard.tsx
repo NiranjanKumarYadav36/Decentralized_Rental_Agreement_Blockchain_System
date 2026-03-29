@@ -41,6 +41,7 @@ export default function TenantDashboard() {
     const [activeTab, setActiveTab] = useState<"browse" | "agreements" | "agreement" | "profile">("browse");
 
     const [myAgreements, setMyAgreements] = useState<any[]>([]);
+    const [agreementStatusFilter, setAgreementStatusFilter] = useState<string>("all");
     const [loadingAgreements, setLoadingAgreements] = useState(false);
     const [approvedAgreement, setApprovedAgreement] = useState<any>(null);
 
@@ -400,6 +401,29 @@ export default function TenantDashboard() {
                             </Button>
                         </div>
 
+                        {/* STATUS FILTER BUTTONS */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {[
+                                { id: "all", label: "All", color: "bg-purple-600/30 text-purple-200" },
+                                { id: "pending", label: "⏳ Pending", color: "bg-yellow-500/20 text-yellow-300" },
+                                { id: "accepted", label: "✅ Accepted", color: "bg-green-500/20 text-green-300" },
+                                { id: "rejected", label: "❌ Rejected", color: "bg-red-500/20 text-red-300" },
+                                { id: "historical", label: "📜 Historical", color: "bg-blue-500/20 text-blue-300" },
+                            ].map((f) => (
+                                <button
+                                    key={f.id}
+                                    onClick={() => setAgreementStatusFilter(f.id)}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all duration-200 ${
+                                        agreementStatusFilter === f.id
+                                            ? `${f.color.split(" ")[0].replace("/20", "/60")} border-white/40 ring-2 ring-white/10`
+                                            : `bg-white/5 border-white/10 text-purple-300 hover:bg-white/10`
+                                    }`}
+                                >
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+
                         {loadingAgreements ? (
                             <p className="text-purple-300 animate-pulse">Loading...</p>
                         ) : myAgreements.length === 0 ? (
@@ -418,66 +442,85 @@ export default function TenantDashboard() {
                             </Card>
                         ) : (
                             <div className="space-y-4">
-                                {myAgreements.map((agreement) => (
-                                    <Card key={agreement._id} className="bg-white/5 border-white/10">
-                                        <CardContent className="p-6">
-                                            <div className="mb-3">{statusBadge(agreement.status)}</div>
+                                {(() => {
+                                    const filtered = myAgreements.filter((a) => {
+                                        if (agreementStatusFilter === "all") return true;
+                                        if (agreementStatusFilter === "pending") return a.status === "pending";
+                                        if (agreementStatusFilter === "accepted") return ["approved", "active"].includes(a.status);
+                                        if (agreementStatusFilter === "rejected") return a.status === "rejected";
+                                        if (agreementStatusFilter === "historical") return ["expired", "terminated"].includes(a.status);
+                                        return true;
+                                    });
 
-                                            <h4 className="text-white font-bold text-lg mb-1">🏠 {agreement.property?.title}</h4>
-                                            <p className="text-purple-300 text-sm mb-4">📍 {agreement.property?.location}</p>
-
-                                            <div className="grid grid-cols-3 gap-4 mb-4">
-                                                {[
-                                                    { label: "Rent", value: `₹${agreement.rentAmount?.toLocaleString()}` },
-                                                    { label: "Deposit", value: `₹${agreement.depositAmount?.toLocaleString()}` },
-                                                    { label: "Duration", value: `${agreement.durationDays} days` },
-                                                ].map(({ label, value }) => (
-                                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3">
-                                                        <p className="text-purple-300 text-xs mb-1">{label}</p>
-                                                        <p className="text-white font-bold text-sm">{value}</p>
-                                                    </div>
-                                                ))}
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <div className="text-center py-12 bg-white/5 border border-white/10 rounded-2xl w-full">
+                                                <p className="text-purple-300">No {agreementStatusFilter === "all" ? "" : agreementStatusFilter} requests found.</p>
                                             </div>
-                                            {(agreement.status === "approved" || agreement.status === "active" || agreement.status === "expired" || agreement.status === "terminated") && (
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    <DownloadAgreementButton
-                                                        agreementId={agreement._id}
-                                                        variant="ghost"
-                                                        details={details}
-                                                        className="text-red-400 border-red-400/20 hover:bg-red-400/10"
-                                                    />
-                                                    
-                                                    {["active", "expired", "terminated"].includes(agreement.status) && (
+                                        );
+                                    }
+
+                                    return filtered.map((agreement) => (
+                                        <Card key={agreement._id} className="bg-white/5 border-white/10">
+                                            <CardContent className="p-6">
+                                                <div className="mb-3">{statusBadge(agreement.status)}</div>
+
+                                                <h4 className="text-white font-bold text-lg mb-1">🏠 {agreement.property?.title}</h4>
+                                                <p className="text-purple-300 text-sm mb-4">📍 {agreement.property?.location}</p>
+
+                                                <div className="grid grid-cols-3 gap-4 mb-4">
+                                                    {[
+                                                        { label: "Rent", value: `₹${agreement.rentAmount?.toLocaleString()}` },
+                                                        { label: "Deposit", value: `₹${agreement.depositAmount?.toLocaleString()}` },
+                                                        { label: "Duration", value: `${agreement.durationDays} days` },
+                                                    ].map(({ label, value }) => (
+                                                        <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                                            <p className="text-purple-300 text-xs mb-1">{label}</p>
+                                                            <p className="text-white font-bold text-sm">{value}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {(agreement.status === "approved" || agreement.status === "active" || agreement.status === "expired" || agreement.status === "terminated") && (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        <DownloadAgreementButton
+                                                            agreementId={agreement._id}
+                                                            variant="ghost"
+                                                            details={details}
+                                                            className="text-red-400 border-red-400/20 hover:bg-red-400/10"
+                                                        />
+                                                        
+                                                        {["active", "expired", "terminated"].includes(agreement.status) && (
+                                                            <Button
+                                                                onClick={() => navigate(`/property/${agreement.property?._id}`)}
+                                                                variant="outline"
+                                                                className="border-yellow-500/40 text-yellow-500 hover:bg-yellow-500/10 rounded-xl"
+                                                            >
+                                                                <Star className="h-4 w-4 mr-2 fill-yellow-500" />
+                                                                Rate & Review
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {agreement.status === "approved" && agreement.contractAddress && (
+                                                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                                                        <p className="text-blue-300 text-sm font-semibold mb-2">
+                                                            🎉 Approved! Sign on blockchain now
+                                                        </p>
+                                                        <p className="text-white font-mono text-xs break-all mb-3">
+                                                            Contract: {agreement.contractAddress}
+                                                        </p>
                                                         <Button
-                                                            onClick={() => navigate(`/property/${agreement.property?._id}`)}
-                                                            variant="outline"
-                                                            className="border-yellow-500/40 text-yellow-500 hover:bg-yellow-500/10 rounded-xl"
+                                                            onClick={() => setActiveTab("agreement")}
+                                                            className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl"
                                                         >
-                                                            <Star className="h-4 w-4 mr-2 fill-yellow-500" />
-                                                            Rate & Review
+                                                            ⛓️ Go to My Agreement Tab to Sign
                                                         </Button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {agreement.status === "approved" && agreement.contractAddress && (
-                                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                                                    <p className="text-blue-300 text-sm font-semibold mb-2">
-                                                        🎉 Approved! Sign on blockchain now
-                                                    </p>
-                                                    <p className="text-white font-mono text-xs break-all mb-3">
-                                                        Contract: {agreement.contractAddress}
-                                                    </p>
-                                                    <Button
-                                                        onClick={() => setActiveTab("agreement")}
-                                                        className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl"
-                                                    >
-                                                        ⛓️ Go to My Agreement Tab to Sign
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ));
+                                })()}
                             </div>
                         )}
                     </div>

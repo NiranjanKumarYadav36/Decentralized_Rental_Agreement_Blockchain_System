@@ -19,7 +19,7 @@ const PAGE_SIZE = 6;
 export default function Properties() {
     const [properties, setProperties] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState({ roomType: "", location: "" });
+    const [filter, setFilter] = useState({ roomType: "", location: "", isAvailable: "" });
     const [currentPage, setCurrentPage] = useState(1);
     const navigate = useNavigate();
 
@@ -107,6 +107,28 @@ export default function Properties() {
                                             {type === "all" ? "All Types" : type}
                                         </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Select
+                                value={filter.isAvailable || "all"}
+                                onValueChange={(value) =>
+                                    setFilter({ ...filter, isAvailable: value === "all" ? "" : value })
+                                }
+                            >
+                                <SelectTrigger className="w-36 bg-white/10 border-white/20 text-white focus:ring-purple-500 rounded-xl shrink-0">
+                                    <SelectValue placeholder="All Status" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-900 border-white/20">
+                                    <SelectItem value="all" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer">
+                                        All Status
+                                    </SelectItem>
+                                    <SelectItem value="true" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer">
+                                        Available
+                                    </SelectItem>
+                                    <SelectItem value="false" className="text-white focus:bg-purple-600/30 focus:text-white cursor-pointer">
+                                        Taken
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
